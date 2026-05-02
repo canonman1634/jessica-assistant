@@ -113,11 +113,53 @@ async def _run_tool(name: str, args: dict) -> str:
     return "\n".join(c.get("text", "") for c in content if c.get("type") == "text")
 
 
+def _sanitize_history(history: list) -> list:
+    """Remove any tool_use/tool_result pairs that are incomplete or unmatched."""
+    clean = []
+    for msg in history:
+        content = msg.get("content", "")
+        # Skip assistant messages that contain tool_use blocks without following tool_results
+        if msg["role"] == "assistant" and isinstance(content, list):
+            has_tool_use = any(
+                getattr(b, "type", None) == "tool_use" or (isinstance(b, dict) and b.get("type") == "tool_use")
+                for b in content
+            )
+            if has_tool_use:
+                # Only keep if the next message is a tool_result
+                idx = history.index(msg)
+                if idx + 1 >= len(history):
+                    continue  # Drop dangling tool_use at end of history
+                next_msg = history[idx + 1]
+                next_content = next_msg.get("content", [])
+                if not isinstance(next_content, list) or not any(
+                    (isinstance(b, dict) and b.get("type") == "tool_result") for b in next_content
+                ):
+                    continue  # Drop unmatched tool_use
+        # Skip orphaned tool_result messages
+        if msg["role"] == "user" and isinstance(content, list) and content and (
+            isinstance(content[0], dict) and content[0].get("type") == "tool_result"
+        ):
+            idx = history.index(msg)
+            if idx == 0:
+                continue
+            prev_msg = history[idx - 1]
+            prev_content = prev_msg.get("content", [])
+            if not isinstance(prev_content, list) or not any(
+                getattr(b, "type", None) == "tool_use" or (isinstance(b, dict) and b.get("type") == "tool_use")
+                for b in prev_content
+            ):
+                continue
+        clean.append(msg)
+    return clean
+
+
 async def run_agent(phone: str, message: str) -> str:
     """Process an incoming WhatsApp message and return Jessica's reply."""
     if phone not in _conversations:
         _conversations[phone] = []
 
+    # Sanitize history before appending new message
+    _conversations[phone] = _sanitize_history(_conversations[phone])
     _conversations[phone].append({"role": "user", "content": message})
 
     # Keep last 20 messages to avoid context blowout
@@ -125,20 +167,32 @@ async def run_agent(phone: str, message: str) -> str:
 
     max_iterations = 10
     for _ in range(max_iterations):
-        response = _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1024,
-            system=_build_system_prompt(),
-            tools=_TOOLS,
-            messages=history,
-        )
+        try:
+            response = _client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1024,
+                system=_build_system_prompt(),
+                tools=_TOOLS,
+                messages=history,
+            )
+        except Exception as e:
+            # If API rejects the history, clear it and retry with just the current message
+            logger.warning("API error with history, resetting conversation: %s", e)
+            _conversations[phone] = []
+            history = [{"role": "user", "content": message}]
+            response = _client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1024,
+                system=_build_system_prompt(),
+                tools=_TOOLS,
+                messages=history,
+            )
 
         # Add assistant response to history
         assistant_content = response.content
         history.append({"role": "assistant", "content": assistant_content})
 
         if response.stop_reason == "end_turn":
-            # Extract text reply
             reply = "\n".join(
                 block.text for block in assistant_content
                 if hasattr(block, "text")
@@ -147,7 +201,6 @@ async def run_agent(phone: str, message: str) -> str:
             return reply or "Done!"
 
         if response.stop_reason == "tool_use":
-            # Execute all tool calls
             tool_results = []
             for block in assistant_content:
                 if block.type == "tool_use":
