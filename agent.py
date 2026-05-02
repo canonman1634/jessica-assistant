@@ -170,7 +170,7 @@ async def run_agent(phone: str, message: str) -> str:
         try:
             response = _client.messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=1024,
+                max_tokens=4096,
                 system=_build_system_prompt(),
                 tools=_TOOLS,
                 messages=history,
@@ -182,7 +182,7 @@ async def run_agent(phone: str, message: str) -> str:
             history = [{"role": "user", "content": message}]
             response = _client.messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=1024,
+                max_tokens=4096,
                 system=_build_system_prompt(),
                 tools=_TOOLS,
                 messages=history,
@@ -191,6 +191,7 @@ async def run_agent(phone: str, message: str) -> str:
         # Add assistant response to history
         assistant_content = response.content
         history.append({"role": "assistant", "content": assistant_content})
+        logger.info("Stop reason: %s", response.stop_reason)
 
         if response.stop_reason == "end_turn":
             reply = "\n".join(
