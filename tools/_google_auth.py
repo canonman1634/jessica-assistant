@@ -1,8 +1,10 @@
 """
 Shared Google OAuth2 credential helper.
-First run: opens browser for consent. Subsequent runs: loads cached token.
+- On Railway: loads token from GOOGLE_TOKEN_B64 environment variable
+- Locally: opens browser for consent on first run, then loads cached token
 """
 
+import base64
 import os
 from pathlib import Path
 from google.auth.transport.requests import Request
@@ -15,18 +17,25 @@ def get_google_credentials() -> Credentials:
     token_path = Path(GOOGLE_TOKEN_PATH)
     creds = None
 
+    # On Railway, load token from environment variable
+    token_b64 = os.environ.get("GOOGLE_TOKEN_B64")
+    if token_b64 and not token_path.exists():
+        token_path.parent.mkdir(parents=True, exist_ok=True)
+        token_path.write_text(base64.b64decode(token_b64).decode())
+
     if token_path.exists():
         creds = Credentials.from_authorized_user_file(str(token_path), GOOGLE_SCOPES)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
+            token_path.write_text(creds.to_json())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 GOOGLE_CREDENTIALS_PATH, GOOGLE_SCOPES
             )
             creds = flow.run_local_server(port=0)
-        token_path.parent.mkdir(parents=True, exist_ok=True)
-        token_path.write_text(creds.to_json())
+            token_path.parent.mkdir(parents=True, exist_ok=True)
+            token_path.write_text(creds.to_json())
 
     return creds
