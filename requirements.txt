@@ -1,0 +1,11 @@
+claude-agent-sdk
+flask
+gunicorn
+twilio
+bland
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
+python-dotenv
+apscheduler
+requests

@@ -1,0 +1,44 @@
+{
+  "owner": {
+    "name": "Jason",
+    "timezone": "America/Chicago"
+  },
+  "children": [
+    {
+      "name": "Graham",
+      "birthday": "2018-05-11",
+      "school": "Bright Horizons"
+    },
+    {
+      "name": "Claire",
+      "birthday": "2021-05-17",
+      "school": "Bright Horizons"
+    }
+  ],
+  "providers": {
+    "note": "Add providers as: { \"name\": \"Dr. Smith\", \"type\": \"pediatrician\", \"phone\": \"+1...\" }",
+    "contacts": []
+  },
+  "vip_senders": {
+    "note": "Add email addresses or name fragments that trigger urgent alerts",
+    "list": [
+      "brighthorizons.com",
+      "mybrightday"
+    ]
+  },
+  "urgent_keywords": [
+    "urgent",
+    "action required",
+    "deadline",
+    "closed",
+    "closure",
+    "delay",
+    "emergency",
+    "cancelled"
+  ],
+  "morning_briefing": {
+    "hour": 7,
+    "minute": 0,
+    "timezone": "America/Chicago"
+  }
+}
