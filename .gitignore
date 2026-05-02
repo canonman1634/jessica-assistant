@@ -8,3 +8,4 @@ sessions/
 *.log
 .venv/
 venv/
+".env.example" 
