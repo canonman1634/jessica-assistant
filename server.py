@@ -52,8 +52,11 @@ def sms():
     from_number = request.form.get("From", "")
     body = request.form.get("Body", "").strip()
 
+    # Strip WhatsApp prefix if present (e.g. "whatsapp:+17732702667" -> "+17732702667")
+    normalized_from = from_number.replace("whatsapp:", "")
+
     # Only accept messages from Jason's whitelisted number
-    if from_number != MY_PHONE_NUMBER:
+    if normalized_from != MY_PHONE_NUMBER:
         logger.warning("Rejected message from non-whitelisted number: %s", from_number)
         return Response(str(MessagingResponse()), mimetype="text/xml")
 

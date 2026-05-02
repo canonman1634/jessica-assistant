@@ -11,10 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 def send_sms_direct(message: str, to: str = MY_PHONE_NUMBER) -> None:
-    """Send an SMS directly (used by scheduler, not via agent tool)."""
+    """Send a WhatsApp message directly (used by scheduler, not via agent tool)."""
     client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    client.messages.create(body=message[:1600], from_=TWILIO_PHONE_NUMBER, to=to)
-    logger.info("Sent proactive SMS to %s", to)
+    client.messages.create(
+        body=message[:1600],
+        from_=f"whatsapp:{TWILIO_PHONE_NUMBER}",
+        to=f"whatsapp:{to}",
+    )
+    logger.info("Sent proactive WhatsApp message to %s", to)
 
 
 @tool(
