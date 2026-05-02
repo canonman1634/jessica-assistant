@@ -1,15 +1,11 @@
 """
 Gmail API tools — search, read, draft, send emails.
-Registered as an MCP server for the Claude Agent SDK.
 """
 
 import base64
-import email as email_lib
 import logging
 from email.mime.text import MIMEText
-from typing import Any
 
-from claude_agent_sdk import tool, create_sdk_mcp_server
 from googleapiclient.discovery import build
 
 from tools._google_auth import get_google_credentials
@@ -31,7 +27,6 @@ def _err(text: str) -> dict:
 
 
 def _decode_body(payload: dict) -> str:
-    """Extract plain-text body from a Gmail message payload."""
     mime_type = payload.get("mimeType", "")
     if mime_type == "text/plain":
         data = payload.get("body", {}).get("data", "")
@@ -44,11 +39,6 @@ def _decode_body(payload: dict) -> str:
     return ""
 
 
-@tool(
-    "list_unread",
-    "List unread emails from Gmail inbox with subject, sender, and snippet. Returns up to 10 emails.",
-    {},
-)
 async def list_unread(_args: dict) -> dict:
     try:
         svc = _gmail_service()
@@ -78,11 +68,6 @@ async def list_unread(_args: dict) -> dict:
         return _err(f"Failed to list emails: {e}")
 
 
-@tool(
-    "search_emails",
-    "Search Gmail using a query string (e.g. 'from:school subject:report'). Returns up to 10 results.",
-    {"query": str, "max_results": int},
-)
 async def search_emails(args: dict) -> dict:
     query = args.get("query", "")
     max_results = min(int(args.get("max_results", 10)), 20)
@@ -115,11 +100,6 @@ async def search_emails(args: dict) -> dict:
         return _err(f"Search failed: {e}")
 
 
-@tool(
-    "read_email",
-    "Read the full content of an email by its Gmail message ID.",
-    {"email_id": str},
-)
 async def read_email(args: dict) -> dict:
     email_id = args.get("email_id", "")
     if not email_id:
@@ -143,11 +123,6 @@ async def read_email(args: dict) -> dict:
         return _err(f"Failed to read email: {e}")
 
 
-@tool(
-    "send_email",
-    "Send an email via Gmail. Only call this AFTER Jason has approved the draft.",
-    {"to": str, "subject": str, "body": str},
-)
 async def send_email(args: dict) -> dict:
     to = args.get("to", "")
     subject = args.get("subject", "")
@@ -165,11 +140,3 @@ async def send_email(args: dict) -> dict:
     except Exception as e:
         logger.exception("send_email failed")
         return _err(f"Failed to send email: {e}")
-
-
-def build_email_server():
-    return create_sdk_mcp_server(
-        name="email",
-        version="1.0.0",
-        tools=[list_unread, search_emails, read_email, send_email],
-    )

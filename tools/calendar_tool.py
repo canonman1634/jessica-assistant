@@ -6,7 +6,6 @@ import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from claude_agent_sdk import tool, create_sdk_mcp_server
 from googleapiclient.discovery import build
 
 from tools._google_auth import get_google_credentials
@@ -35,11 +34,6 @@ def _fmt_event(e: dict) -> str:
     return f"• {e.get('summary', '(no title)')} — {time_str}"
 
 
-@tool(
-    "list_upcoming",
-    "List upcoming calendar events. Optionally specify how many days ahead to look (default 7).",
-    {"days_ahead": int},
-)
 async def list_upcoming(args: dict) -> dict:
     days = int(args.get("days_ahead", 7))
     try:
@@ -65,11 +59,6 @@ async def list_upcoming(args: dict) -> dict:
         return _err(f"Failed to list events: {e}")
 
 
-@tool(
-    "check_availability",
-    "Check if a specific time slot is free on the calendar.",
-    {"date": str, "start_time": str, "end_time": str},
-)
 async def check_availability(args: dict) -> dict:
     date = args.get("date", "")
     start_time = args.get("start_time", "")
@@ -90,19 +79,12 @@ async def check_availability(args: dict) -> dict:
         if not events:
             return _ok(f"You're free on {date} from {start_time} to {end_time}.")
         conflicts = [_fmt_event(e) for e in events]
-        return _ok(
-            f"Conflict found on {date} {start_time}–{end_time}:\n" + "\n".join(conflicts)
-        )
+        return _ok(f"Conflict found on {date} {start_time}–{end_time}:\n" + "\n".join(conflicts))
     except Exception as e:
         logger.exception("check_availability failed")
         return _err(f"Failed to check availability: {e}")
 
 
-@tool(
-    "create_event",
-    "Create a new calendar event. Only call after Jason has confirmed the details.",
-    {"title": str, "date": str, "start_time": str, "end_time": str, "description": str, "location": str},
-)
 async def create_event(args: dict) -> dict:
     title = args.get("title", "")
     date = args.get("date", "")
@@ -132,11 +114,6 @@ async def create_event(args: dict) -> dict:
         return _err(f"Failed to create event: {e}")
 
 
-@tool(
-    "update_event",
-    "Update an existing calendar event by event ID.",
-    {"event_id": str, "title": str, "date": str, "start_time": str, "end_time": str, "description": str},
-)
 async def update_event(args: dict) -> dict:
     event_id = args.get("event_id", "")
     if not event_id:
@@ -169,11 +146,3 @@ async def update_event(args: dict) -> dict:
     except Exception as e:
         logger.exception("update_event failed")
         return _err(f"Failed to update event: {e}")
-
-
-def build_calendar_server():
-    return create_sdk_mcp_server(
-        name="calendar",
-        version="1.0.0",
-        tools=[list_upcoming, check_availability, create_event, update_event],
-    )

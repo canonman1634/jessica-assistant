@@ -1,61 +1,68 @@
 """
-Jessica — Claude Agent SDK orchestrator.
+Jessica — Anthropic SDK orchestrator.
 Receives a message from Jason, runs the agent with all tools, returns a reply string.
 """
 
+import json
 import logging
-import os
-from claude_agent_sdk import query, ClaudeAgentOptions
-from claude_agent_sdk.types import AssistantMessage, ResultMessage, SystemMessage
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from config import load_context, ANTHROPIC_API_KEY
+import anthropic
 
-# Ensure the API key is available to the Claude Code CLI subprocess
-os.environ["ANTHROPIC_API_KEY"] = ANTHROPIC_API_KEY
+from config import load_context, ANTHROPIC_API_KEY, TZ
 from session_store import get_session_id, save_session_id
-from tools.email_tool import build_email_server
-from tools.calendar_tool import build_calendar_server
-from tools.phone_tool import build_phone_server
-from tools.school_tool import build_school_server
-from tools.sms_tool import build_sms_server
+from tools.email_tool import list_unread, search_emails, read_email, send_email
+from tools.calendar_tool import list_upcoming, check_availability, create_event, update_event
+from tools.phone_tool import make_call, check_call_status, get_transcript, list_recent_calls
+from tools.school_tool import check_school_updates, get_daily_report
+from tools.sms_tool import send_sms
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT_TEMPLATE = """
-You are Jessica, a warm and friendly personal executive assistant for {owner_name}.
+_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+_TZ = ZoneInfo(TZ)
 
-## Your personality
-- Warm, personable, and efficient — like a trusted friend who happens to be incredibly organized
-- Concise but never cold; use a natural, conversational tone
-- Use first names when referring to family members
-- Respond via SMS, so keep things readable: use short paragraphs or bullet points for lists
+# ── Tool registry ─────────────────────────────────────────────────────────────
 
-## Family context
-- Owner: {owner_name} (timezone: {timezone})
-- Children:
-{children_list}
-- Both children attend Bright Horizons daycare (My Bright Day app)
+_TOOL_HANDLERS = {
+    "list_unread": list_unread,
+    "search_emails": search_emails,
+    "read_email": read_email,
+    "send_email": send_email,
+    "list_upcoming": list_upcoming,
+    "check_availability": check_availability,
+    "create_event": create_event,
+    "update_event": update_event,
+    "make_call": make_call,
+    "check_call_status": check_call_status,
+    "get_transcript": get_transcript,
+    "list_recent_calls": list_recent_calls,
+    "check_school_updates": check_school_updates,
+    "get_daily_report": get_daily_report,
+    "send_sms": send_sms,
+}
 
-## Your capabilities
-- Check, search, and send emails (Gmail)
-- Check and create Google Calendar events
-- Make phone calls on {owner_name}'s behalf using an AI calling service
-- Check school/daycare updates from My Bright Day
-- Send proactive SMS notifications
+_TOOLS = [
+    {"name": "list_unread", "description": "List unread emails from Gmail inbox with subject, sender, and snippet. Returns up to 10 emails.", "input_schema": {"type": "object", "properties": {}}},
+    {"name": "search_emails", "description": "Search Gmail using a query string (e.g. 'from:school subject:report'). Returns up to 10 results.", "input_schema": {"type": "object", "properties": {"query": {"type": "string"}, "max_results": {"type": "integer"}}, "required": ["query"]}},
+    {"name": "read_email", "description": "Read the full content of an email by its Gmail message ID.", "input_schema": {"type": "object", "properties": {"email_id": {"type": "string"}}, "required": ["email_id"]}},
+    {"name": "send_email", "description": "Send an email via Gmail. Only call this AFTER Jason has approved the draft.", "input_schema": {"type": "object", "properties": {"to": {"type": "string"}, "subject": {"type": "string"}, "body": {"type": "string"}}, "required": ["to", "subject", "body"]}},
+    {"name": "list_upcoming", "description": "List upcoming calendar events. Optionally specify how many days ahead to look (default 7).", "input_schema": {"type": "object", "properties": {"days_ahead": {"type": "integer"}}}},
+    {"name": "check_availability", "description": "Check if a specific time slot is free on the calendar.", "input_schema": {"type": "object", "properties": {"date": {"type": "string"}, "start_time": {"type": "string"}, "end_time": {"type": "string"}}, "required": ["date", "start_time", "end_time"]}},
+    {"name": "create_event", "description": "Create a new calendar event. Only call after Jason has confirmed the details.", "input_schema": {"type": "object", "properties": {"title": {"type": "string"}, "date": {"type": "string"}, "start_time": {"type": "string"}, "end_time": {"type": "string"}, "description": {"type": "string"}, "location": {"type": "string"}}, "required": ["title", "date", "start_time", "end_time"]}},
+    {"name": "update_event", "description": "Update an existing calendar event by event ID.", "input_schema": {"type": "object", "properties": {"event_id": {"type": "string"}, "title": {"type": "string"}, "date": {"type": "string"}, "start_time": {"type": "string"}, "end_time": {"type": "string"}, "description": {"type": "string"}}, "required": ["event_id"]}},
+    {"name": "make_call", "description": "Initiate an AI phone call via Bland.ai. IMPORTANT: Only call this tool AFTER Jason has explicitly approved the call.", "input_schema": {"type": "object", "properties": {"phone_number": {"type": "string"}, "objective": {"type": "string"}, "context": {"type": "string"}, "provider_name": {"type": "string"}}, "required": ["phone_number", "objective"]}},
+    {"name": "check_call_status", "description": "Check the status and outcome of a Bland.ai call by its call ID.", "input_schema": {"type": "object", "properties": {"call_id": {"type": "string"}}, "required": ["call_id"]}},
+    {"name": "get_transcript", "description": "Get the full transcript of a completed Bland.ai call by its call ID.", "input_schema": {"type": "object", "properties": {"call_id": {"type": "string"}}, "required": ["call_id"]}},
+    {"name": "list_recent_calls", "description": "List recent Bland.ai calls with their status and outcomes.", "input_schema": {"type": "object", "properties": {"limit": {"type": "integer"}}}},
+    {"name": "check_school_updates", "description": "Check for recent My Bright Day / Bright Horizons emails. Returns updates from the last N days.", "input_schema": {"type": "object", "properties": {"days_back": {"type": "integer"}}}},
+    {"name": "get_daily_report", "description": "Get the full content of the most recent My Bright Day daily report email.", "input_schema": {"type": "object", "properties": {}}},
+    {"name": "send_sms", "description": "Send a proactive WhatsApp/SMS notification to Jason. Use for urgent alerts or follow-ups.", "input_schema": {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"]}},
+]
 
-## Rules you ALWAYS follow
-1. **Phone calls**: Before making any call, text {owner_name} with: who you'll call, the phone number, and what you'll say. Wait for explicit approval ("yes", "go ahead", "do it") before dialing.
-2. **Emails**: Before sending any email, show {owner_name} the full draft (To, Subject, Body). Wait for approval before sending.
-3. **Privacy**: Never store sensitive information beyond what's needed for the immediate task.
-4. **Uncertainty**: If you're unsure about something (a phone number, a date, etc.), ask before acting.
-
-## Tone examples
-- Good: "Got it! I'll draft an email to Dr. Smith — take a look: ..."
-- Good: "Graham had a great day at Bright Horizons! Here's his daily report: ..."
-- Avoid: Overly formal language, unnecessary disclaimers, repeating instructions back verbatim
-
-Today's date/time is available via the current context. {owner_name}'s timezone is {timezone}.
-""".strip()
+# ── Conversation history (in-memory, keyed by phone number) ───────────────────
+_conversations: dict[str, list] = {}
 
 
 def _build_system_prompt() -> str:
@@ -63,69 +70,99 @@ def _build_system_prompt() -> str:
     owner = ctx["owner"]["name"]
     tz = ctx["owner"]["timezone"]
     children = ctx.get("children", [])
+    now = datetime.now(_TZ).strftime("%A, %B %-d, %Y at %-I:%M %p CT")
     children_lines = "\n".join(
         f"  - {c['name']} (born {c['birthday']}, attends {c.get('school', 'Bright Horizons')})"
         for c in children
     )
-    return _SYSTEM_PROMPT_TEMPLATE.format(
-        owner_name=owner,
-        timezone=tz,
-        children_list=children_lines,
-    )
+    return f"""You are Jessica, a warm and friendly personal executive assistant for {owner}.
+
+## Your personality
+- Warm, personable, and efficient — like a trusted friend who happens to be incredibly organized
+- Concise but never cold; use a natural, conversational tone
+- Use first names when referring to family members
+- Respond via WhatsApp, so keep things readable: use short paragraphs or bullet points for lists
+
+## Family context
+- Owner: {owner} (timezone: {tz})
+- Current time: {now}
+- Children:
+{children_lines}
+- Both children attend Bright Horizons daycare (My Bright Day app)
+
+## Your capabilities
+- Check, search, and send emails (Gmail)
+- Check and create Google Calendar events
+- Make phone calls on {owner}'s behalf using an AI calling service
+- Check school/daycare updates from My Bright Day
+- Send proactive WhatsApp notifications
+
+## Rules you ALWAYS follow
+1. **Phone calls**: Before making any call, tell {owner}: who you'll call, the number, and what you'll say. Wait for explicit approval ("yes", "go ahead", "do it") before using make_call.
+2. **Emails**: Before sending any email, show {owner} the full draft (To, Subject, Body). Wait for approval before using send_email.
+3. **Privacy**: Never store sensitive information beyond what's needed for the immediate task.
+4. **Uncertainty**: If unsure about a phone number, date, or detail — ask before acting."""
+
+
+async def _run_tool(name: str, args: dict) -> str:
+    handler = _TOOL_HANDLERS.get(name)
+    if not handler:
+        return f"Unknown tool: {name}"
+    result = await handler(args)
+    content = result.get("content", [])
+    return "\n".join(c.get("text", "") for c in content if c.get("type") == "text")
 
 
 async def run_agent(phone: str, message: str) -> str:
-    """Process an incoming SMS message and return Jessica's reply."""
-    session_id = get_session_id(phone)
+    """Process an incoming WhatsApp message and return Jessica's reply."""
+    if phone not in _conversations:
+        _conversations[phone] = []
 
-    mcp_servers = {
-        "email": build_email_server(),
-        "calendar": build_calendar_server(),
-        "phone": build_phone_server(),
-        "school": build_school_server(),
-        "sms": build_sms_server(),
-    }
+    _conversations[phone].append({"role": "user", "content": message})
 
-    options = ClaudeAgentOptions(
-        system_prompt=_build_system_prompt(),
-        mcp_servers=mcp_servers,
-        allowed_tools=[
-            "mcp__email__search_emails",
-            "mcp__email__read_email",
-            "mcp__email__send_email",
-            "mcp__email__list_unread",
-            "mcp__calendar__check_availability",
-            "mcp__calendar__list_upcoming",
-            "mcp__calendar__create_event",
-            "mcp__calendar__update_event",
-            "mcp__phone__make_call",
-            "mcp__phone__check_call_status",
-            "mcp__phone__get_transcript",
-            "mcp__phone__list_recent_calls",
-            "mcp__school__check_school_updates",
-            "mcp__school__get_daily_report",
-            "mcp__sms__send_sms",
-        ],
-        **({"resume": session_id} if session_id else {}),
-    )
+    # Keep last 20 messages to avoid context blowout
+    history = _conversations[phone][-20:]
 
-    reply_parts = []
-    new_session_id = session_id
+    max_iterations = 10
+    for _ in range(max_iterations):
+        response = _client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=_build_system_prompt(),
+            tools=_TOOLS,
+            messages=history,
+        )
 
-    async for event in query(prompt=message, options=options):
-        if isinstance(event, SystemMessage) and event.subtype == "init":
-            new_session_id = event.data.get("session_id", session_id)
-        elif isinstance(event, AssistantMessage):
-            for block in event.content:
-                if hasattr(block, "text") and block.text:
-                    reply_parts.append(block.text)
-        elif isinstance(event, ResultMessage):
-            if event.subtype == "success" and event.result:
-                # Use the final result if we didn't collect assistant text
-                if not reply_parts:
-                    reply_parts.append(event.result)
+        # Add assistant response to history
+        assistant_content = response.content
+        history.append({"role": "assistant", "content": assistant_content})
 
-    if new_session_id:
-        save_session_id(phone, new_session_id)
+        if response.stop_reason == "end_turn":
+            # Extract text reply
+            reply = "\n".join(
+                block.text for block in assistant_content
+                if hasattr(block, "text")
+            ).strip()
+            _conversations[phone] = history
+            return reply or "Done!"
 
-    return "\n".join(reply_parts).strip() or "Done!"
+        if response.stop_reason == "tool_use":
+            # Execute all tool calls
+            tool_results = []
+            for block in assistant_content:
+                if block.type == "tool_use":
+                    logger.info("Calling tool: %s with %s", block.name, block.input)
+                    result_text = await _run_tool(block.name, block.input)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result_text,
+                    })
+
+            history.append({"role": "user", "content": tool_results})
+            continue
+
+        break
+
+    _conversations[phone] = history
+    return "Sorry, I ran into an issue. Please try again!"

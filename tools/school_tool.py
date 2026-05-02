@@ -1,17 +1,15 @@
 """
 My Bright Day / Bright Horizons school update tools.
 Reads school updates by searching for Bright Horizons emails in Gmail.
-No scraping — relies on the email notifications the app sends automatically.
 """
 
+import base64
 import logging
 import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from claude_agent_sdk import tool, create_sdk_mcp_server
 from googleapiclient.discovery import build
-import base64
 
 from tools._google_auth import get_google_credentials
 from config import TZ
@@ -52,26 +50,18 @@ def _decode_body(payload: dict) -> str:
 
 
 def _clean_text(text: str) -> str:
-    """Strip excess whitespace and HTML tags from email body."""
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text[:2000]
 
 
-@tool(
-    "check_school_updates",
-    "Check for recent My Bright Day / Bright Horizons emails. Returns updates from the last N days.",
-    {"days_back": int},
-)
 async def check_school_updates(args: dict) -> dict:
     days_back = int(args.get("days_back", 1))
     try:
         svc = _gmail_service()
         after_date = (datetime.now(_TZ) - timedelta(days=days_back)).strftime("%Y/%m/%d")
         query = f"({_SCHOOL_QUERY}) after:{after_date}"
-        results = svc.users().messages().list(
-            userId="me", q=query, maxResults=10
-        ).execute()
+        results = svc.users().messages().list(userId="me", q=query, maxResults=10).execute()
         messages = results.get("messages", [])
         if not messages:
             return _ok(f"No school updates in the last {days_back} day(s).")
@@ -97,25 +87,15 @@ async def check_school_updates(args: dict) -> dict:
         return _err(f"Failed to check school updates: {e}")
 
 
-@tool(
-    "get_daily_report",
-    "Get the full content of the most recent My Bright Day daily report email.",
-    {},
-)
 async def get_daily_report(_args: dict) -> dict:
     try:
         svc = _gmail_service()
         query = f"({_SCHOOL_QUERY}) subject:(daily report OR today's update OR activity)"
-        results = svc.users().messages().list(
-            userId="me", q=query, maxResults=5
-        ).execute()
+        results = svc.users().messages().list(userId="me", q=query, maxResults=5).execute()
         messages = results.get("messages", [])
         if not messages:
             return _ok("No daily report found. Make sure email notifications are enabled in the My Bright Day app.")
-        # Get the most recent one
-        msg = svc.users().messages().get(
-            userId="me", id=messages[0]["id"], format="full"
-        ).execute()
+        msg = svc.users().messages().get(userId="me", id=messages[0]["id"], format="full").execute()
         headers = {h["name"]: h["value"] for h in msg["payload"]["headers"]}
         body = _clean_text(_decode_body(msg["payload"]))
         return _ok(
@@ -128,11 +108,3 @@ async def get_daily_report(_args: dict) -> dict:
     except Exception as e:
         logger.exception("get_daily_report failed")
         return _err(f"Failed to get daily report: {e}")
-
-
-def build_school_server():
-    return create_sdk_mcp_server(
-        name="school",
-        version="1.0.0",
-        tools=[check_school_updates, get_daily_report],
-    )
