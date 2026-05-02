@@ -4,10 +4,14 @@ Receives a message from Jason, runs the agent with all tools, returns a reply st
 """
 
 import logging
+import os
 from claude_agent_sdk import query, ClaudeAgentOptions
 from claude_agent_sdk.types import AssistantMessage, ResultMessage, SystemMessage
 
-from config import load_context
+from config import load_context, ANTHROPIC_API_KEY
+
+# Ensure the API key is available to the Claude Code CLI subprocess
+os.environ["ANTHROPIC_API_KEY"] = ANTHROPIC_API_KEY
 from session_store import get_session_id, save_session_id
 from tools.email_tool import build_email_server
 from tools.calendar_tool import build_calendar_server
