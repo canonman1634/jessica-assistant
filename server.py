@@ -29,8 +29,11 @@ def _validate_twilio(req) -> bool:
     """Reject requests that don't have a valid Twilio signature."""
     validator = RequestValidator(TWILIO_AUTH_TOKEN)
     signature = req.headers.get("X-Twilio-Signature", "")
-    url = req.url
     params = req.form.to_dict()
+    # Railway sits behind a proxy — use the forwarded URL if available
+    forwarded_proto = req.headers.get("X-Forwarded-Proto", req.scheme)
+    forwarded_host = req.headers.get("X-Forwarded-Host", req.host)
+    url = f"{forwarded_proto}://{forwarded_host}{req.path}"
     return validator.validate(url, params, signature)
 
 
