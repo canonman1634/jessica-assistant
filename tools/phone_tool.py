@@ -5,7 +5,7 @@ Always requires Jason's confirmation before dialing.
 
 import logging
 import requests
-from config import BLAND_API_KEY
+from config import BLAND_API_KEY, TWILIO_PHONE_NUMBER
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,7 @@ async def make_call(args: dict) -> dict:
         "wait_for_greeting": True,
         "record": True,
         "max_duration": 10,
+        "from": TWILIO_PHONE_NUMBER,
     }
 
     try:
