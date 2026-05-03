@@ -12,6 +12,7 @@ TWILIO_AUTH_TOKEN = os.environ["TWILIO_AUTH_TOKEN"]
 TWILIO_PHONE_NUMBER = os.environ["TWILIO_PHONE_NUMBER"]
 MY_PHONE_NUMBER = os.environ["MY_PHONE_NUMBER"]
 BLAND_API_KEY = os.environ["BLAND_API_KEY"]
+TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 
 # ── Google ────────────────────────────────────────────────────────────────────
 GOOGLE_CREDENTIALS_PATH = os.environ.get("GOOGLE_CREDENTIALS_PATH", "credentials/google_credentials.json")

@@ -17,6 +17,7 @@ from tools.calendar_tool import list_upcoming, check_availability, create_event,
 from tools.phone_tool import make_call, check_call_status, get_transcript, list_recent_calls
 from tools.school_tool import check_school_updates, get_daily_report
 from tools.sms_tool import send_sms
+from tools.search_tool import web_search
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ _TOOL_HANDLERS = {
     "check_school_updates": check_school_updates,
     "get_daily_report": get_daily_report,
     "send_sms": send_sms,
+    "web_search": web_search,
 }
 
 _TOOLS = [
@@ -59,6 +61,7 @@ _TOOLS = [
     {"name": "check_school_updates", "description": "Check for recent My Bright Day / Bright Horizons emails. Returns updates from the last N days.", "input_schema": {"type": "object", "properties": {"days_back": {"type": "integer"}}}},
     {"name": "get_daily_report", "description": "Get the full content of the most recent My Bright Day daily report email.", "input_schema": {"type": "object", "properties": {}}},
     {"name": "send_sms", "description": "Send a proactive WhatsApp/SMS notification to Jason. Use for urgent alerts or follow-ups.", "input_schema": {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"]}},
+    {"name": "web_search", "description": "Search the web for information such as local businesses, ratings, hours, reviews, news, or any general research. Use this whenever Jason asks you to look something up, find recommendations, or research a topic.", "input_schema": {"type": "object", "properties": {"query": {"type": "string", "description": "The search query, e.g. 'top rated plumbers near Deer Park IL'"}, "max_results": {"type": "integer", "description": "Number of results to return (default 5, max 10)"}}, "required": ["query"]}},
 ]
 
 # ── Conversation history (in-memory, keyed by phone number) ───────────────────
@@ -91,6 +94,7 @@ def _build_system_prompt() -> str:
 - Both children attend Bright Horizons daycare (My Bright Day app)
 
 ## Your capabilities
+- Search the web for businesses, reviews, ratings, hours, and general information
 - Check, search, and send emails (Gmail)
 - Check and create Google Calendar events
 - Make phone calls on {owner}'s behalf using an AI calling service
