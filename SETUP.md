@@ -33,6 +33,8 @@ Open `.env` and fill in:
 | `MY_PHONE_NUMBER` | Your personal cell number in E.164 format |
 | `BLAND_API_KEY` | https://app.bland.ai → Settings → API Keys |
 | `FLASK_SECRET_KEY` | Run: `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `BASE_URL` | Your Railway app URL once deployed (e.g. `https://jessica-production.up.railway.app`) — enables automatic call completion notifications |
+| `TZ` | Your timezone (e.g. `America/Chicago`) — defaults to `America/Chicago` if omitted |
 
 ---
 
@@ -130,9 +132,21 @@ Jessica will find updates by searching your Gmail for Bright Horizons emails.
 
 ---
 
-## Step 7 — Test it!
+## Step 7 — Set your BASE_URL (enables automatic call summaries)
 
-Text your Twilio number from your personal phone:
+Once Railway gives you an app URL, add it as an environment variable:
+
+```
+BASE_URL = https://YOUR-RAILWAY-URL.up.railway.app
+```
+
+This tells Jessica to register a webhook with Bland.ai so she automatically texts you a call summary (outcome, appointment details, notes) the moment a call finishes — no need to ask.
+
+---
+
+## Step 8 — Test it!
+
+Text your Twilio WhatsApp number from your personal phone:
 
 ```
 Hello Jessica!
