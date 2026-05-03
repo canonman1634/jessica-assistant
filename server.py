@@ -13,6 +13,7 @@ from config import (
     MY_PHONE_NUMBER,
 )
 from agent import run_agent
+from tools.sms_tool import send_sms
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -75,6 +76,42 @@ def sms():
     # Twilio supports up to 1600 chars per message segment; split on newlines if huge
     resp.message(reply[:1600])
     return Response(str(resp), mimetype="text/xml")
+
+
+@app.route("/bland-webhook", methods=["POST"])
+def bland_webhook():
+    """Receive Bland.ai call completion events and forward a summary to Jason via WhatsApp."""
+    data = request.get_json(silent=True) or {}
+    call_id = data.get("call_id", "unknown")
+    status = data.get("status", "unknown")
+    answered_by = data.get("answered_by", "unknown")
+    duration = data.get("call_length", 0)
+    analysis = data.get("analysis") or {}
+
+    lines = [
+        f"Call completed (ID: {call_id})",
+        f"Status: {status} | Answered by: {answered_by} | Duration: {duration}s",
+    ]
+
+    outcome = analysis.get("outcome", "")
+    if outcome:
+        lines.append(f"Outcome: {outcome.replace('_', ' ').title()}")
+    appt_date = analysis.get("appointment_date")
+    appt_time = analysis.get("appointment_time")
+    if appt_date:
+        lines.append(f"Appointment: {appt_date}{' at ' + appt_time if appt_time else ''}")
+    notes = analysis.get("notes")
+    if notes:
+        lines.append(f"Notes: {notes}")
+    if str(analysis.get("follow_up_needed", "")).lower() == "true":
+        lines.append("Action needed: follow-up required")
+
+    try:
+        asyncio.run(send_sms({"message": "\n".join(lines)}))
+    except Exception:
+        logger.exception("Failed to send bland webhook notification")
+
+    return {"status": "ok"}, 200
 
 
 if __name__ == "__main__":
