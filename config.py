@@ -26,6 +26,7 @@ GOOGLE_SCOPES = [
 FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
 TZ = os.environ.get("TZ", "America/Chicago")
 LOG_RETENTION_DAYS = int(os.environ.get("LOG_RETENTION_DAYS", "7"))
+APP_URL = os.environ.get("APP_URL", "").rstrip("/")
 
 # ── Family context ────────────────────────────────────────────────────────────
 _context_path = Path(__file__).parent / "context.json"

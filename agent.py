@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 import anthropic
 
-from config import load_context, ANTHROPIC_API_KEY, TZ
+from config import load_context, ANTHROPIC_API_KEY, TZ, APP_URL
 from session_store import get_session_id, save_session_id
 from tools.email_tool import list_unread, search_emails, read_email, send_email
 from tools.calendar_tool import list_upcoming, check_availability, create_event, update_event
@@ -101,14 +101,23 @@ def _build_system_prompt() -> str:
 1. **Phone calls**: Before making any call, tell {owner}: who you'll call, the number, and what you'll say. Wait for explicit approval ("yes", "go ahead", "do it") before using make_call.
 2. **Emails**: Before sending any email, show {owner} the full draft (To, Subject, Body). Wait for approval before using send_email.
 3. **Privacy**: Never store sensitive information beyond what's needed for the immediate task.
-4. **Uncertainty**: If unsure about a phone number, date, or detail — ask before acting."""
+4. **Uncertainty**: If unsure about a phone number, date, or detail — ask before acting.
+5. **Google reauthorization**: If a tool returns AUTH_REQUIRED, tell {owner} their Google account got disconnected and they need to tap this link to reconnect: {APP_URL}/auth — do not say you don't know where, just send that link."""
 
 
 async def _run_tool(name: str, args: dict) -> str:
+    from tools._google_auth import AuthRequiredError
     handler = _TOOL_HANDLERS.get(name)
     if not handler:
         return f"Unknown tool: {name}"
-    result = await handler(args)
+    try:
+        result = await handler(args)
+    except AuthRequiredError:
+        auth_url = f"{APP_URL}/auth" if APP_URL else "/auth"
+        return (
+            f"AUTH_REQUIRED: Google account is disconnected. "
+            f"Tell the user to visit this link to reconnect: {auth_url}"
+        )
     content = result.get("content", [])
     return "\n".join(c.get("text", "") for c in content if c.get("type") == "text")
 

@@ -33,6 +33,7 @@ Open `.env` and fill in:
 | `MY_PHONE_NUMBER` | Your personal cell number in E.164 format |
 | `BLAND_API_KEY` | https://app.bland.ai → Settings → API Keys |
 | `FLASK_SECRET_KEY` | Run: `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `APP_URL` | Your Railway app URL, e.g. `https://jessica-assistant-production.up.railway.app` |
 
 ---
 
@@ -46,8 +47,11 @@ Open `.env` and fill in:
 4. Create OAuth credentials:
    - Go to **APIs & Services → Credentials**
    - Click **Create Credentials → OAuth client ID**
-   - Application type: **Desktop app**
+   - Application type: **Web application**
    - Name: "Jessica"
+   - Under **Authorized redirect URIs**, add:
+     - `http://localhost:8080/auth/callback` (for local testing)
+     - `https://YOUR-RAILWAY-URL.up.railway.app/auth/callback` (update after Step 5)
    - Click **Create** → Download the JSON file
 5. Save the downloaded file as `credentials/google_credentials.json`
 6. Configure the OAuth consent screen:
@@ -57,14 +61,15 @@ Open `.env` and fill in:
    - Add scopes: Gmail (read/send) + Calendar (full access)
    - Add your Gmail address as a test user
 
-**Authorize Jessica to access your Google account (run once locally):**
+**Authorize Jessica to access your Google account:**
 
-```bash
-python -c "from tools._google_auth import get_google_credentials; get_google_credentials()"
-```
+Once deployed to Railway (Step 5), set the `APP_URL` environment variable to your Railway URL,
+then visit `https://YOUR-RAILWAY-URL.up.railway.app/auth` in your browser.
 
-This opens a browser window. Sign in with your Gmail account and grant access.
-A `credentials/google_token.json` file will be created — keep it secret (it's gitignored).
+Sign in with your Gmail account and grant access. Jessica will send you a WhatsApp confirmation
+when the connection is saved.
+
+For local testing, set `APP_URL=http://localhost:5000` in your `.env` and visit `http://localhost:5000/auth`.
 
 ---
 
@@ -96,23 +101,18 @@ Jessica will find updates by searching your Gmail for Bright Horizons emails.
    - Add environment variables (copy from your `.env` file)
    - **Important**: Also add `GOOGLE_TOKEN_JSON` — see note below
 
-3. **Google token on Railway**: Since Railway can't run the browser OAuth flow, you need to encode your token:
-   ```bash
-   # On your local machine after completing Step 3:
-   python -c "
-   import json, base64
-   token = open('credentials/google_token.json').read()
-   print(base64.b64encode(token.encode()).decode())
-   "
-   ```
-   Add this as `GOOGLE_TOKEN_B64` in Railway environment variables.
-   
-   Then update `tools/_google_auth.py` to handle this — or just use Railway's volume mount for the credentials folder.
-   
-   **Easiest approach**: Use Railway's persistent volume and upload the token file via Railway CLI:
-   ```bash
-   railway run -- python -c "from tools._google_auth import get_google_credentials; get_google_credentials()"
-   ```
+3. **Google auth on Railway**: Add `APP_URL` to your Railway environment variables (e.g. `https://jessica-assistant-production.up.railway.app`).
+
+   After deploying, visit `https://YOUR-RAILWAY-URL/auth` in your browser to authorize Jessica.
+   She'll send you a WhatsApp message when it's done.
+
+   If you ever need to reauthorize (e.g. after a long gap), just visit `/auth` again — or text Jessica and she'll send you the link.
+
+   > **Optional**: If you have an existing `credentials/google_token.json` locally, you can bootstrap it:
+   > ```bash
+   > python -c "import json,base64; print(base64.b64encode(open('credentials/google_token.json').read().encode()).decode())"
+   > ```
+   > Add the output as `GOOGLE_TOKEN_B64` in Railway to skip the initial `/auth` visit.
 
 4. Railway will auto-detect the `Procfile` and deploy. Your app URL will be something like:
    `https://jessica-assistant-production.up.railway.app`
