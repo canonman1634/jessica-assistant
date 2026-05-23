@@ -65,6 +65,21 @@ _TOOLS = [
 _conversations: dict[str, list] = {}
 
 
+def _build_sports_context(sports: dict) -> str:
+    teams = sports.get("teams", [])
+    if not teams:
+        return ""
+    lines = ["\n## Sports & venues"]
+    for team in teams:
+        notes = team.get("seating_notes", {})
+        lines.append(f"- {team['name']} ({team['league']}) play at {team['venue']}, {team['venue_city']}")
+        if notes.get("family_recommendation"):
+            lines.append(f"  Family seating: {notes['family_recommendation']}")
+        if notes.get("venue_notes"):
+            lines.append(f"  Venue notes: {notes['venue_notes']}")
+    return "\n".join(lines) + "\n"
+
+
 def _build_system_prompt() -> str:
     ctx = load_context()
     owner = ctx["owner"]["name"]
@@ -75,6 +90,7 @@ def _build_system_prompt() -> str:
         f"  - {c['name']} (born {c['birthday']}, attends {c.get('school', 'Bright Horizons')})"
         for c in children
     )
+    sports_lines = _build_sports_context(ctx.get("sports", {}))
     return f"""You are Jessica, a warm and friendly personal executive assistant for {owner}.
 
 ## Your personality
@@ -89,7 +105,7 @@ def _build_system_prompt() -> str:
 - Children:
 {children_lines}
 - Both children attend Bright Horizons daycare (My Bright Day app)
-
+{sports_lines}
 ## Your capabilities
 - Check, search, and send emails (Gmail)
 - Check and create Google Calendar events

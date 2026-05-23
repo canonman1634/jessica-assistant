@@ -40,5 +40,20 @@
     "hour": 7,
     "minute": 0,
     "timezone": "America/Chicago"
+  },
+  "sports": {
+    "teams": [
+      {
+        "name": "Milwaukee Brewers",
+        "league": "MLB",
+        "venue": "American Family Field",
+        "venue_city": "Milwaukee, WI",
+        "seating_notes": {
+          "family_recommendation": "Right Field Lower (Sections 128-138) for kids — access to Kohl's Kids Zone, Bernie Brewer slide visible on home runs, affordable ($20-40/ticket). Left Field Lower (106-113) for better home plate sightlines at similar prices. Right Field Terrace Bleachers (422-435) for the most affordable option.",
+          "avoid": "Infield box seats (expensive, kids get restless) and far upper-deck corners.",
+          "venue_notes": "Retractable roof — no rain worries. May evenings can be cold (40s-50s), dress kids in layers for night games."
+        }
+      }
+    ]
   }
 }
