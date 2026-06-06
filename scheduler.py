@@ -17,6 +17,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from config import TZ, load_context
 from tools.sms_tool import send_sms_direct
 from session_store import purge_old_sessions
+from dreamer import dream
 
 logger = logging.getLogger(__name__)
 _TZ = ZoneInfo(TZ)
@@ -115,6 +116,15 @@ def nightly_cleanup():
         logger.info("Purged %d old sessions", removed)
 
 
+def nightly_dream():
+    """Consolidate and deduplicate memory.json using Claude Haiku."""
+    try:
+        summary = dream()
+        logger.info("Dream complete: %s", summary)
+    except Exception:
+        logger.exception("Dreamer failed")
+
+
 # ── Scheduler setup ───────────────────────────────────────────────────────────
 
 def start_scheduler() -> BackgroundScheduler:
@@ -141,6 +151,12 @@ def start_scheduler() -> BackgroundScheduler:
         nightly_cleanup,
         CronTrigger(hour=2, minute=0, timezone=_TZ),
         id="nightly_cleanup",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        nightly_dream,
+        CronTrigger(hour=3, minute=0, timezone=_TZ),
+        id="nightly_dream",
         replace_existing=True,
     )
 
