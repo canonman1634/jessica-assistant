@@ -39,6 +39,17 @@ def _decode_body(payload: dict) -> str:
     return ""
 
 
+def send_email_direct(to: str, subject: str, body: str) -> None:
+    """Send an email synchronously (used by scheduler, not via agent tool)."""
+    svc = _gmail_service()
+    mime = MIMEText(body)
+    mime["to"] = to
+    mime["subject"] = subject
+    raw = base64.urlsafe_b64encode(mime.as_bytes()).decode()
+    svc.users().messages().send(userId="me", body={"raw": raw}).execute()
+    logger.info("Sent direct email to %s — %s", to, subject)
+
+
 async def list_unread(_args: dict) -> dict:
     try:
         svc = _gmail_service()
