@@ -11,7 +11,7 @@ BLAND_API_KEY = os.environ["BLAND_API_KEY"]
 MY_EMAIL = os.environ.get("MY_EMAIL", "")
 
 # ── User identity (determines which memory file is used) ─────────────────────
-JESSICA_USER = os.environ.get("JESSICA_USER", "default")
+JESSICA_USER = os.environ.get("JESSICA_USER", "jason")
 
 # ── Google ────────────────────────────────────────────────────────────────────
 GOOGLE_CREDENTIALS_PATH = os.environ.get("GOOGLE_CREDENTIALS_PATH", "credentials/google_credentials.json")
