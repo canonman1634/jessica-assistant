@@ -16,7 +16,7 @@ from tools.email_tool import list_unread, search_emails, read_email, send_email
 from tools.calendar_tool import list_upcoming, check_availability, create_event, update_event
 from tools.phone_tool import make_call, check_call_status, get_transcript, list_recent_calls
 from tools.school_tool import check_school_updates, get_daily_report
-from tools.memory_tool import remember, forget, load_memory_for_prompt
+from tools.memory_tool import identify, remember, forget, load_memory_for_prompt, get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ _TOOL_HANDLERS = {
     "list_recent_calls": list_recent_calls,
     "check_school_updates": check_school_updates,
     "get_daily_report": get_daily_report,
+    "identify": identify,
     "remember": remember,
     "forget": forget,
 }
@@ -59,6 +60,7 @@ _TOOLS = [
     {"name": "list_recent_calls", "description": "List recent Bland.ai calls with their status and outcomes.", "input_schema": {"type": "object", "properties": {"limit": {"type": "integer"}}}},
     {"name": "check_school_updates", "description": "Check for recent My Bright Day / Bright Horizons emails. Returns updates from the last N days.", "input_schema": {"type": "object", "properties": {"days_back": {"type": "integer"}}}},
     {"name": "get_daily_report", "description": "Get the full content of the most recent My Bright Day daily report email.", "input_schema": {"type": "object", "properties": {}}},
+    {"name": "identify", "description": "Set who you are talking to for this session. Call this at the start of every session before using any other tools.", "input_schema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}},
     {"name": "remember", "description": "Persist a fact for future sessions. category: 'people' (key=name, value=description), 'prefs' (key=preference, value=value), or 'notes' (key=the note itself). Call this whenever Jason shares a persistent fact (a contact, preference, or anything worth keeping).", "input_schema": {"type": "object", "properties": {"category": {"type": "string", "enum": ["people", "prefs", "notes"]}, "key": {"type": "string"}, "value": {"type": "string"}}, "required": ["category", "key"]}},
     {"name": "forget", "description": "Remove a stored fact from memory. Provide category and the key (or keyword for notes) to delete.", "input_schema": {"type": "object", "properties": {"category": {"type": "string", "enum": ["people", "prefs", "notes"]}, "key": {"type": "string"}}, "required": ["category", "key"]}},
 ]
@@ -78,6 +80,13 @@ def _build_system_prompt() -> str:
         for c in children
     )
     memory_block = load_memory_for_prompt()
+    current_user = get_current_user()
+    identity_instruction = (
+        f"Current user: {current_user}"
+        if current_user else
+        "## IMPORTANT\nYou do not yet know who you are talking to. "
+        "Before doing anything else, ask their name, then immediately call `identify` with it."
+    )
     return f"""You are Jessica, a warm and friendly personal executive assistant for {owner}.
 
 ## Your personality
@@ -93,7 +102,9 @@ def _build_system_prompt() -> str:
 {children_lines}
 - Both children attend Bright Horizons daycare (My Bright Day app)
 
-## What you remember about {owner}
+{identity_instruction}
+
+## What you remember about the current user
 {memory_block}
 
 ## Your capabilities

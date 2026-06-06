@@ -1,8 +1,8 @@
 """
 Dreamer — nightly memory consolidation.
 
-Reads context.json + memory_{user}.json, asks Claude (Haiku) to deduplicate,
-remove redundancies, and normalize. Writes back a clean memory file.
+Finds all memory_{user}.json files, asks Claude Haiku to deduplicate and
+normalize each one against context.json, then writes them back.
 """
 import json
 import logging
@@ -12,13 +12,13 @@ from zoneinfo import ZoneInfo
 
 import anthropic
 
-from config import ANTHROPIC_API_KEY, MY_EMAIL, TZ, JESSICA_USER
+from config import ANTHROPIC_API_KEY, MY_EMAIL, TZ
 from tools.email_tool import send_email_direct
 
 logger = logging.getLogger(__name__)
 _TZ = ZoneInfo(TZ)
-_MEMORY_PATH = Path(__file__).parent / f"memory_{JESSICA_USER}.json"
-_CONTEXT_PATH = Path(__file__).parent / "context.json"
+_BASE = Path(__file__).parent
+_CONTEXT_PATH = _BASE / "context.json"
 
 _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -42,16 +42,10 @@ Return ONLY valid JSON matching this exact schema — no markdown, no explanatio
 {{"people": {{"name": "description"}}, "prefs": {{"preference": "value"}}, "notes": ["note1", "note2"]}}"""
 
 
-def dream() -> dict:
-    """
-    Consolidate the user's memory file using Claude Haiku. Returns a summary dict.
-    Safe to call if memory file is missing or empty.
-    """
-    if not _MEMORY_PATH.exists():
-        logger.info("Dreamer: no memory file for user '%s', skipping", JESSICA_USER)
-        return {"skipped": True, "reason": "no memory file"}
-
-    memory_raw = _MEMORY_PATH.read_text()
+def _dream_one(memory_path: Path, context_raw: str) -> dict:
+    """Consolidate a single memory file. Returns a summary dict."""
+    user = memory_path.stem.removeprefix("memory_")
+    memory_raw = memory_path.read_text()
     memory_before = json.loads(memory_raw)
 
     before_counts = {
@@ -61,10 +55,8 @@ def dream() -> dict:
     }
 
     if sum(before_counts.values()) == 0:
-        logger.info("Dreamer: memory is empty for user '%s', skipping", JESSICA_USER)
-        return {"skipped": True, "reason": "empty memory"}
-
-    context_raw = _CONTEXT_PATH.read_text() if _CONTEXT_PATH.exists() else "{}"
+        logger.info("Dreamer: memory empty for '%s', skipping", user)
+        return {"user": user, "skipped": True, "reason": "empty memory"}
 
     response = _client.messages.create(
         model="claude-haiku-4-5-20251001",
@@ -77,18 +69,18 @@ def dream() -> dict:
     try:
         memory_after = json.loads(raw)
     except json.JSONDecodeError as e:
-        raise ValueError(f"Dreamer: invalid JSON from Claude: {e}\n{raw[:200]}") from e
-    # Validate schema before overwriting
-    if not all(k in memory_after for k in ("people", "prefs", "notes")):
-        raise ValueError(f"Dreamer: unexpected schema in response: {raw[:200]}")
-    if not isinstance(memory_after["people"], dict):
-        raise ValueError("Dreamer: 'people' must be a dict")
-    if not isinstance(memory_after["prefs"], dict):
-        raise ValueError("Dreamer: 'prefs' must be a dict")
-    if not isinstance(memory_after["notes"], list):
-        raise ValueError("Dreamer: 'notes' must be a list")
+        raise ValueError(f"Dreamer: invalid JSON from Claude for '{user}': {e}\n{raw[:200]}") from e
 
-    _MEMORY_PATH.write_text(json.dumps(memory_after, indent=2))
+    if not all(k in memory_after for k in ("people", "prefs", "notes")):
+        raise ValueError(f"Dreamer: unexpected schema for '{user}': {raw[:200]}")
+    if not isinstance(memory_after["people"], dict):
+        raise ValueError(f"Dreamer: 'people' must be a dict for '{user}'")
+    if not isinstance(memory_after["prefs"], dict):
+        raise ValueError(f"Dreamer: 'prefs' must be a dict for '{user}'")
+    if not isinstance(memory_after["notes"], list):
+        raise ValueError(f"Dreamer: 'notes' must be a list for '{user}'")
+
+    memory_path.write_text(json.dumps(memory_after, indent=2))
 
     after_counts = {
         "people": len(memory_after.get("people", {})),
@@ -99,53 +91,65 @@ def dream() -> dict:
     usage = response.usage
     input_tokens = usage.input_tokens
     output_tokens = usage.output_tokens
-    cost_usd = (input_tokens / 1_000_000) * 1.00 + (output_tokens / 1_000_000) * 5.00
 
-    summary = {
-        "user": JESSICA_USER,
+    return {
+        "user": user,
         "before": before_counts,
         "after": after_counts,
         "tokens": {"input": input_tokens, "output": output_tokens},
-        "cost_usd": round(cost_usd, 6),
+        "cost_usd": round((input_tokens / 1_000_000) * 1.00 + (output_tokens / 1_000_000) * 5.00, 6),
         "dreamed_at": datetime.now(_TZ).isoformat(),
     }
-    logger.info("Dreamer complete: %s", summary)
-
-    if MY_EMAIL:
-        _send_dream_report(summary)
-
-    return summary
 
 
-def _send_dream_report(summary: dict) -> None:
-    dreamed_at = summary["dreamed_at"]
-    before = summary["before"]
-    after = summary["after"]
-    tokens = summary["tokens"]
-    cost = summary["cost_usd"]
+def dream() -> list[dict]:
+    """Consolidate all memory_{user}.json files. Returns a list of summaries."""
+    memory_files = sorted(_BASE.glob("memory_*.json"))
+    if not memory_files:
+        logger.info("Dreamer: no memory files found, skipping")
+        return []
 
-    removed = sum(before[k] - after[k] for k in before if after[k] < before[k])
-    added = sum(after[k] - before[k] for k in after if after[k] > before[k])
+    context_raw = _CONTEXT_PATH.read_text() if _CONTEXT_PATH.exists() else "{}"
+    summaries = []
 
-    body = (
-        f"Jessica dreamed at {dreamed_at} (user: {summary['user']})\n\n"
-        f"Memory changes:\n"
-        f"  People:      {before['people']} → {after['people']}\n"
-        f"  Preferences: {before['prefs']} → {after['prefs']}\n"
-        f"  Notes:       {before['notes']} → {after['notes']}\n"
-        f"  Net:         +{added} added, -{removed} removed\n\n"
-        f"Haiku token usage:\n"
-        f"  Input:  {tokens['input']:,}\n"
-        f"  Output: {tokens['output']:,}\n"
-        f"  Total:  {tokens['input'] + tokens['output']:,}\n"
-        f"  Cost:   ${cost:.6f}\n"
-    )
+    for path in memory_files:
+        try:
+            summary = _dream_one(path, context_raw)
+            summaries.append(summary)
+            logger.info("Dreamer complete for '%s': %s", summary["user"], summary)
+        except Exception:
+            logger.exception("Dreamer failed for '%s'", path.name)
+
+    if MY_EMAIL and summaries:
+        _send_dream_report(summaries)
+
+    return summaries
+
+
+def _send_dream_report(summaries: list[dict]) -> None:
+    dreamed_at = datetime.now(_TZ).isoformat()
+    lines = [f"Jessica dream report — {dreamed_at[:10]}\n"]
+
+    for s in summaries:
+        if s.get("skipped"):
+            lines.append(f"  {s['user']}: skipped ({s.get('reason', '')})")
+            continue
+        before, after = s["before"], s["after"]
+        tokens = s["tokens"]
+        lines.append(
+            f"  {s['user']}:\n"
+            f"    People:      {before['people']} → {after['people']}\n"
+            f"    Preferences: {before['prefs']} → {after['prefs']}\n"
+            f"    Notes:       {before['notes']} → {after['notes']}\n"
+            f"    Tokens:      {tokens['input']:,} in / {tokens['output']:,} out\n"
+            f"    Cost:        ${s['cost_usd']:.6f}"
+        )
 
     try:
         send_email_direct(
             to=MY_EMAIL,
-            subject=f"Jessica dream report — {dreamed_at[:10]} ({summary['user']})",
-            body=body,
+            subject=f"Jessica dream report — {dreamed_at[:10]}",
+            body="\n".join(lines),
         )
     except Exception:
         logger.exception("Failed to send dream report email")
