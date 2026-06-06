@@ -16,7 +16,6 @@ from tools.email_tool import list_unread, search_emails, read_email, send_email
 from tools.calendar_tool import list_upcoming, check_availability, create_event, update_event
 from tools.phone_tool import make_call, check_call_status, get_transcript, list_recent_calls
 from tools.school_tool import check_school_updates, get_daily_report
-from tools.sms_tool import send_sms
 from tools.memory_tool import remember, forget, load_memory_for_prompt
 
 logger = logging.getLogger(__name__)
@@ -41,7 +40,6 @@ _TOOL_HANDLERS = {
     "list_recent_calls": list_recent_calls,
     "check_school_updates": check_school_updates,
     "get_daily_report": get_daily_report,
-    "send_sms": send_sms,
     "remember": remember,
     "forget": forget,
 }
@@ -61,7 +59,6 @@ _TOOLS = [
     {"name": "list_recent_calls", "description": "List recent Bland.ai calls with their status and outcomes.", "input_schema": {"type": "object", "properties": {"limit": {"type": "integer"}}}},
     {"name": "check_school_updates", "description": "Check for recent My Bright Day / Bright Horizons emails. Returns updates from the last N days.", "input_schema": {"type": "object", "properties": {"days_back": {"type": "integer"}}}},
     {"name": "get_daily_report", "description": "Get the full content of the most recent My Bright Day daily report email.", "input_schema": {"type": "object", "properties": {}}},
-    {"name": "send_sms", "description": "Send a proactive WhatsApp/SMS notification to Jason. Use for urgent alerts or follow-ups.", "input_schema": {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"]}},
     {"name": "remember", "description": "Persist a fact for future sessions. category: 'people' (key=name, value=description), 'prefs' (key=preference, value=value), or 'notes' (key=the note itself). Call this whenever Jason shares a persistent fact (a contact, preference, or anything worth keeping).", "input_schema": {"type": "object", "properties": {"category": {"type": "string", "enum": ["people", "prefs", "notes"]}, "key": {"type": "string"}, "value": {"type": "string"}}, "required": ["category", "key"]}},
     {"name": "forget", "description": "Remove a stored fact from memory. Provide category and the key (or keyword for notes) to delete.", "input_schema": {"type": "object", "properties": {"category": {"type": "string", "enum": ["people", "prefs", "notes"]}, "key": {"type": "string"}}, "required": ["category", "key"]}},
 ]
@@ -104,7 +101,6 @@ def _build_system_prompt() -> str:
 - Check and create Google Calendar events
 - Make phone calls on {owner}'s behalf using an AI calling service
 - Check school/daycare updates from My Bright Day
-- Send proactive WhatsApp notifications
 - Remember and forget facts across sessions
 
 ## Rules you ALWAYS follow

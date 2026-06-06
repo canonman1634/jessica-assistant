@@ -1,7 +1,6 @@
 anthropic
 flask
 gunicorn
-twilio
 bland
 google-api-python-client
 google-auth-oauthlib

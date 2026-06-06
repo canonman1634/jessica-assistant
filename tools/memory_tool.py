@@ -1,12 +1,15 @@
 """
 Memory tools — allow Jessica to remember and forget facts across sessions.
+Memory is stored per-user, keyed by the JESSICA_USER env var.
 """
 import json
 import logging
 from pathlib import Path
 
+from config import JESSICA_USER
+
 logger = logging.getLogger(__name__)
-_MEMORY_PATH = Path(__file__).parent.parent / "memory.json"
+_MEMORY_PATH = Path(__file__).parent.parent / f"memory_{JESSICA_USER}.json"
 
 
 def _load() -> dict:
