@@ -11,6 +11,7 @@ TWILIO_ACCOUNT_SID = os.environ["TWILIO_ACCOUNT_SID"]
 TWILIO_AUTH_TOKEN = os.environ["TWILIO_AUTH_TOKEN"]
 TWILIO_PHONE_NUMBER = os.environ["TWILIO_PHONE_NUMBER"]
 MY_PHONE_NUMBER = os.environ["MY_PHONE_NUMBER"]
+MY_EMAIL = os.environ.get("MY_EMAIL", "")
 BLAND_API_KEY = os.environ["BLAND_API_KEY"]
 
 # ── Google ────────────────────────────────────────────────────────────────────

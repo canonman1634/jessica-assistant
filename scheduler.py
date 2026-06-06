@@ -3,6 +3,7 @@ APScheduler jobs for proactive notifications:
   1. Morning briefing at 7:00 AM CT
   2. Urgent alert monitor every 15 minutes
   3. Nightly session cleanup
+  4. Nightly dream (memory consolidation) at 3:00 AM CT
 """
 
 import asyncio
