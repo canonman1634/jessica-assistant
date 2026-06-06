@@ -74,7 +74,10 @@ def dream() -> dict:
 
     raw = response.content[0].text.strip()
 
-    memory_after = json.loads(raw)
+    try:
+        memory_after = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Dreamer: invalid JSON from Claude: {e}\n{raw[:200]}") from e
     # Validate schema before overwriting
     if not all(k in memory_after for k in ("people", "prefs", "notes")):
         raise ValueError(f"Dreamer: unexpected schema in response: {raw[:200]}")
