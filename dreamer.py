@@ -12,7 +12,8 @@ from zoneinfo import ZoneInfo
 
 import anthropic
 
-from config import ANTHROPIC_API_KEY, TZ
+from config import ANTHROPIC_API_KEY, MY_EMAIL, TZ
+from tools.email_tool import send_email_direct
 
 logger = logging.getLogger(__name__)
 _TZ = ZoneInfo(TZ)
@@ -92,10 +93,55 @@ def dream() -> dict:
         "notes": len(memory_after.get("notes", [])),
     }
 
+    usage = response.usage
+    input_tokens = usage.input_tokens
+    output_tokens = usage.output_tokens
+    cost_usd = (input_tokens / 1_000_000) * 1.00 + (output_tokens / 1_000_000) * 5.00
+
     summary = {
         "before": before_counts,
         "after": after_counts,
+        "tokens": {"input": input_tokens, "output": output_tokens},
+        "cost_usd": round(cost_usd, 6),
         "dreamed_at": datetime.now(_TZ).isoformat(),
     }
     logger.info("Dreamer complete: %s", summary)
+
+    if MY_EMAIL:
+        _send_dream_report(summary)
+
     return summary
+
+
+def _send_dream_report(summary: dict) -> None:
+    dreamed_at = summary["dreamed_at"]
+    before = summary["before"]
+    after = summary["after"]
+    tokens = summary["tokens"]
+    cost = summary["cost_usd"]
+
+    removed = sum(before[k] - after[k] for k in before if after[k] < before[k])
+    added = sum(after[k] - before[k] for k in after if after[k] > before[k])
+
+    body = (
+        f"Jessica dreamed at {dreamed_at}\n\n"
+        f"Memory changes:\n"
+        f"  People:      {before['people']} → {after['people']}\n"
+        f"  Preferences: {before['prefs']} → {after['prefs']}\n"
+        f"  Notes:       {before['notes']} → {after['notes']}\n"
+        f"  Net:         +{added} added, -{removed} removed\n\n"
+        f"Haiku token usage:\n"
+        f"  Input:  {tokens['input']:,}\n"
+        f"  Output: {tokens['output']:,}\n"
+        f"  Total:  {tokens['input'] + tokens['output']:,}\n"
+        f"  Cost:   ${cost:.6f}\n"
+    )
+
+    try:
+        send_email_direct(
+            to=MY_EMAIL,
+            subject=f"Jessica dream report — {dreamed_at[:10]}",
+            body=body,
+        )
+    except Exception:
+        logger.exception("Failed to send dream report email")
