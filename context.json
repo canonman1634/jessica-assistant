@@ -41,6 +41,14 @@
     "minute": 0,
     "timezone": "America/Chicago"
   },
+  "current_compensation": {
+    "base_salary": 155000,
+    "bonus_target_pct": 15,
+    "bonus_target_value": 23250,
+    "annual_stock_sale": "10000-15000",
+    "total_comp_approx": "188000-193000",
+    "notes": "Stock is cashed out annually, not held. Total comp estimate: $155k base + ~$23.25k bonus + ~$10-15k stock = ~$188-193k"
+  },
   "resume": {
     "current_company": "Teradata",
     "total_tenure": "7 yrs 8 mos",
