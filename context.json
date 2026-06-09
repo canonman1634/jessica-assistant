@@ -40,5 +40,88 @@
     "hour": 7,
     "minute": 0,
     "timezone": "America/Chicago"
+  },
+  "resume": {
+    "current_company": "Teradata",
+    "total_tenure": "7 yrs 8 mos",
+    "location": "Greater Chicago Area",
+    "roles": [
+      {
+        "title": "Senior FP&A Manager, AI & Automation",
+        "company": "Teradata",
+        "dates": "Jan 2026 – Present",
+        "highlights": [
+          "Established and leads the Finance AI Process Automation function",
+          "Architecting lightweight HTML applications and AI-driven forecasting agents across Oracle Cloud ERP",
+          "Built end-to-end AI-driven P&L forecasting agents using Claude Code spanning ARR, cost of revenue, and operating expenses with embedded variance analysis and automated executive-ready commentary",
+          "Reengineered enterprise headcount forecasting integrating HR and ERP data into governed framework with rule-based variance logic",
+          "Designed standardized AI-driven variance and P&L narrative consolidation platform",
+          "Transformed CAPEX forecasting and fixed asset workflows through Salesforce pipeline integration",
+          "Launched AI-driven competitor benchmarking analytics to synthesize peer performance into structured leadership insights for capital allocation and GTM strategy"
+        ]
+      },
+      {
+        "title": "Senior FP&A Manager, GTM",
+        "company": "Teradata",
+        "dates": "Jan 2023 – Feb 2026",
+        "highlights": [
+          "Led financial consolidations for a $2B global organization; drove forecasting, P&L ownership, and executive-level reporting",
+          "Oversee ~$2B in revenue and ~$2B ARR",
+          "Deployed AI agents to streamline P&L consolidation and supplemental schedules",
+          "Spearheaded quarterly flash reporting to C-suite",
+          "Consolidated 6 international P&Ls and Annual Operating Plans into unified global structure",
+          "Managed and mentored a high-performing team",
+          "Architecting multi-phase AI transformation roadmap for FP&A operations"
+        ]
+      },
+      {
+        "title": "FP&A Manager, GTM",
+        "company": "Teradata",
+        "dates": "Nov 2020 – Dec 2022",
+        "highlights": [
+          "Owned forecasting and scenario modeling across Americas GTM organization",
+          "Led end-to-end forecasting process (monthly, quarterly, scenario-based)",
+          "Developed cross-functional reporting in partnership with Ops and Accounting",
+          "Created strategic financial models for GTM investment prioritization and resource planning",
+          "Produced executive-ready materials for quarterly and board-level discussions",
+          "Managed a team of analysts"
+        ]
+      },
+      {
+        "title": "Senior FP&A Analyst, GTM",
+        "company": "Teradata",
+        "dates": "~2018 – Nov 2020",
+        "highlights": [
+          "AI agents, NLP querying, automated insights",
+          "Strategic intelligence: predictive deal analytics, AI-assisted scenario planning, automated reporting with anomaly detection",
+          "Strengthened global financial visibility and improved leadership decision-making"
+        ]
+      }
+    ],
+    "earlier_experience": [
+      {
+        "title": "Senior Revenue Financial Analyst / ASC 606 role",
+        "company": "Aspect Software",
+        "notes": "ASC 606 revenue modeling, quota design, Hyperion Planning, regional forecasting for Central Sales"
+      },
+      {
+        "title": "Project Controller Consultant",
+        "company": "Deloitte",
+        "dates": "Aug 2017 – Nov 2018"
+      },
+      {
+        "title": "FP&A Analyst, Professional Services",
+        "company": "AHEAD"
+      }
+    ],
+    "key_strengths": [
+      "7+ yrs Teradata FP&A (GTM focus, ARR/revenue modeling, team management)",
+      "~$2B ARR and revenue oversight",
+      "AI/automation in FP&A — built AI-driven forecasting agents and P&L tools",
+      "Executive and board-level reporting",
+      "Cross-functional GTM partnership (Ops, Accounting, Sales)",
+      "SaaS metrics: ARR, P&L, headcount, CAPEX",
+      "Tools: Oracle Cloud ERP, Salesforce, Hyperion, NetSuite, Excel"
+    ]
   }
 }
