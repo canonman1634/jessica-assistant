@@ -15,6 +15,13 @@
       "school": "Bright Horizons"
     }
   ],
+  "contacts": [
+    {
+      "nickname": "Jen",
+      "name": "Jennifer Hinz",
+      "email": "jennifer.a.hinz@gmail.com"
+    }
+  ],
   "providers": {
     "note": "Add providers as: { \"name\": \"Dr. Smith\", \"type\": \"pediatrician\", \"phone\": \"+1...\" }",
     "contacts": []
