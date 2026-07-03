@@ -15,19 +15,22 @@ conversation history. Can also be run manually anytime.
 ## Process
 
 1. **Find candidate emails.**
-   - Check for a Gmail label named `jessica/calendar-reviewed` (`list_labels`);
-     create it if missing (`create_label`).
-   - Search for unreviewed mail: `-label:jessica/calendar-reviewed newer_than:2d`.
-     The 2-day window is a safety margin in case a scheduled run is missed.
+   - Call `list_labels` and look for a label named exactly
+     `jessica/calendar-reviewed`. If it doesn't exist, create it with
+     `create_label` and note the `labelId` it returns.
+   - `search_threads`'s `label:` filter takes a **label ID, not a display
+     name** — always resolve the ID via `list_labels` first, then search:
+     `-label:<labelId> newer_than:2d`. The 2-day window is a safety margin
+     in case a scheduled run is missed.
    - Look for: appointment confirmations, event invitations, reservations
      (restaurants, travel, medical, etc.), school/daycare notices with dates,
      meeting requests, and cancellation/reschedule notices. Ignore
      promotional/social mail with no concrete date or time.
 
 2. **Label every candidate as reviewed immediately** (`label_message` or
-   `label_thread` with `jessica/calendar-reviewed`) once you've looked at it —
-   whether or not it turns into a proposal. This is what stops the same email
-   from being re-proposed on the next run.
+   `label_thread` with the `jessica/calendar-reviewed` label ID from step 1)
+   once you've looked at it — whether or not it turns into a proposal. This is
+   what stops the same email from being re-proposed on the next run.
 
 3. **Cross-reference the calendar** for each calendar-relevant email
    (`list_events` / `get_event` around the relevant date):
