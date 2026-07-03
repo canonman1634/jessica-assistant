@@ -7,10 +7,13 @@ description: Scans Gmail for calendar-relevant messages (appointments, invitatio
 
 ## When this runs
 
-Fired twice daily (7am / 6pm CT) by a scheduled Routine, each time into a fresh
-session with no memory of prior runs. All state that needs to persist across
-runs (which emails have already been looked at) lives in Gmail labels, not in
-conversation history. Can also be run manually anytime.
+Fired twice daily (7am / 6pm CT) by a scheduled Routine, resuming this same
+session each time (a fresh session per firing was tried first, but fresh
+sessions don't have the repo or Gmail/Calendar connectors attached — only
+this session does). All state that needs to persist across runs (which
+emails have already been looked at) lives in Gmail labels, not in
+conversation history, so the process below doesn't depend on remembering
+earlier turns. Can also be run manually anytime.
 
 ## Process
 
@@ -46,8 +49,11 @@ conversation history. Can also be run manually anytime.
    - Post a concise, numbered list. For each item include: action
      (ADD/EDIT/DELETE), title, date/time, location, and a one-line source
      (`from: <subject> — <sender>`).
+   - If there's at least one proposal, send a `PushNotification` summarizing
+     it in one line (e.g. "3 calendar items to review from this morning's
+     email scan") so the user knows a review is waiting even if they're away.
    - If nothing relevant was found, say so briefly (e.g. "No calendar updates
-     from this scan.") and stop there.
+     from this scan.") and stop there — no notification needed.
    - End your turn without calling `create_event`, `update_event`, or
      `delete_event`. The user may not reply until much later — that's
      expected.
