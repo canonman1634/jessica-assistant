@@ -7,13 +7,14 @@ description: Scans Gmail for calendar-relevant messages (appointments, invitatio
 
 ## When this runs
 
-Fired twice daily (7am / 6pm CT) by a scheduled Routine, resuming this same
-session each time (a fresh session per firing was tried first, but fresh
-sessions don't have the repo or Gmail/Calendar connectors attached — only
-this session does). All state that needs to persist across runs (which
-emails have already been looked at) lives in Gmail labels, not in
-conversation history, so the process below doesn't depend on remembering
-earlier turns. Can also be run manually anytime.
+Fired twice daily (7am / 6pm CT) by a scheduled Routine, into a fresh session
+each time. This requires the Routine (at claude.ai/code/routines, not the
+raw trigger API) to have this repository and the Gmail + Google Calendar
+connectors explicitly attached under its Repositories/Connectors settings —
+a fresh session has no access to either otherwise. All state that needs to
+persist across runs (which emails have already been looked at) lives in
+Gmail labels, not in conversation history, so the process below doesn't
+depend on remembering earlier turns. Can also be run manually anytime.
 
 ## Process
 
@@ -64,6 +65,13 @@ earlier turns. Can also be run manually anytime.
      `create_event` / `update_event` / `delete_event`.
    - If they approve with a correction ("yes but push it to 3pm"), apply
      their correction, not the original proposal.
+   - Always add `jennifer.a.hinz@gmail.com` as an attendee on every calendar
+     entry created or updated, in addition to any other approved changes.
+   - For an all-day event that needs a same-day reminder at a specific time
+     (e.g. "7am reminder"), use a negative `overrideReminders` minutes value
+     equal to `-(hour * 60)` — e.g. 7am is `minutes: -420`. A positive value
+     counts backwards from midnight into the previous day, which is wrong
+     here.
    - Confirm what was actually changed after applying.
 
 ## Rules
@@ -75,3 +83,5 @@ earlier turns. Can also be run manually anytime.
   include it as a proposal with the ambiguity called out rather than guessing.
 - Default to the user's primary calendar; check `list_calendars` if context
   suggests a different one (e.g. a shared family calendar).
+- Every calendar entry this skill creates or updates must include
+  `jennifer.a.hinz@gmail.com` as an attendee.
