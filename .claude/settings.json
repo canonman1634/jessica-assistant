@@ -1,19 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Skill(email-calendar-sync)",
-      "mcp__Gmail__search_threads",
-      "mcp__Gmail__list_labels",
-      "mcp__Gmail__create_label",
-      "mcp__Gmail__label_message",
-      "mcp__Gmail__label_thread",
-      "mcp__Gmail__get_thread",
-      "mcp__Google_Calendar__list_calendars",
-      "mcp__Google_Calendar__list_events",
-      "mcp__Google_Calendar__get_event",
-      "mcp__Google_Calendar__create_event",
-      "mcp__Google_Calendar__update_event",
-      "mcp__Google_Calendar__delete_event"
+      "Skill(email-calendar-sync)"
     ]
   }
 }
