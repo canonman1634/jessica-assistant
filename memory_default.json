@@ -1,5 +1,26 @@
 {
   "people": {},
   "prefs": {},
-  "notes": []
+  "notes": [
+    {
+      "id": "trip-san-diego-dana-point-sep2026",
+      "date_saved": "2026-07-03",
+      "summary": "San Diego work trip + Dana Point vacation with Jen, September 2026",
+      "details": {
+        "san_diego_work_trip": {
+          "dates": "September 14–17, 2026",
+          "location": "San Diego, CA",
+          "purpose": "Work"
+        },
+        "dana_point_trip": {
+          "start_date": "September 17, 2026",
+          "end_date": "TBD",
+          "location": "Dana Point, CA",
+          "hotel": "Waldorf Astoria Monarch Beach",
+          "travel_party": "Jason + Jen (Jen flies into San Diego on Sept 17)",
+          "notes": "Jen flies into San Diego on Sept 17, then they drive/travel to Dana Point together"
+        }
+      }
+    }
+  ]
 }
