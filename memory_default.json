@@ -1,5 +1,12 @@
 {
-  "people": {},
+  "people": {
+    "jen": {
+      "full_name": "Jennifer Hinz",
+      "nickname": "Jen",
+      "email": "jennifer.a.hinz@gmail.com",
+      "relationship": "wife"
+    }
+  },
   "prefs": {},
   "notes": [
     {
