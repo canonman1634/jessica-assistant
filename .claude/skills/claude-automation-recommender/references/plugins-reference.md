@@ -1,46 +1,98 @@
-# Plugins Reference
+# Plugin Recommendations
 
-Plugins bundle multiple skills (and sometimes agents/hooks) for one-step install, useful when a team wants
-standardized tooling rather than hand-rolled per-repo skills.
+Plugins are installable collections of skills, commands, agents, and hooks. Install via `/plugin install`.
 
-## General Productivity
+**Note**: These are plugins from the official repository. Use web search to discover additional community plugins.
 
-**anthropic-agent-skills**
-- Signal: general-purpose recommendation with no strong specialization
-- Contains: core document/workflow skills (docx, xlsx, pptx, pdf generation and editing)
+---
 
-## Document Workflows
+## Official Plugins
 
-**docx / xlsx / pdf skills**
-- Signal: repo or team regularly produces reports, spreadsheets, or PDFs as deliverables
-- Value: structured generation/editing of office documents without hand-rolled scripts
+### Development & Code Quality
 
-## Frontend Development
+| Plugin | Best For | Key Features |
+|--------|----------|--------------|
+| **plugin-dev** | Building Claude Code plugins | Skills for creating skills, hooks, commands, agents |
+| **pr-review-toolkit** | PR review workflows | Specialized review agents (code, tests, types) |
+| **code-review** | Automated code review | Multi-agent review with confidence scoring |
+| **code-simplifier** | Code refactoring | Simplify code while preserving functionality |
+| **feature-dev** | Feature development | End-to-end feature workflow with agents |
 
-**frontend-design**
-- Signal: React/Vue/Angular/Svelte project, design-system or component-heavy UI work
-- Value: consistent design guidance and component scaffolding conventions
+### Git & Workflow
 
-## Building AI Tools
+| Plugin | Best For | Key Features |
+|--------|----------|--------------|
+| **commit-commands** | Git workflows | /commit, /commit-push-pr commands |
+| **hookify** | Automation rules | Create hooks from conversation patterns |
 
-**mcp-builder**
-- Signal: repo is building a custom MCP server, or has an internal API with no existing MCP integration
-- Value: scaffolding and conventions for building a compliant MCP server from scratch
+### Frontend
 
-## Plugin Development
+| Plugin | Best For | Key Features |
+|--------|----------|--------------|
+| **frontend-design** | UI development | Production-grade UI, avoids generic aesthetics |
 
-**plugin-dev**
-- Signal: repo's purpose is building Claude Code plugins/skills (like this one)
-- Value: includes the skill-development skill and conventions for packaging plugins
+### Learning & Guidance
 
-## Automation Rules
+| Plugin | Best For | Key Features |
+|--------|----------|--------------|
+| **explanatory-output-style** | Learning | Educational insights about code choices |
+| **learning-output-style** | Interactive learning | Requests contributions at decision points |
+| **security-guidance** | Security awareness | Warns about security issues when editing |
 
-**hookify**
-- Signal: team wants to formalize hook-writing conventions across repos
-- Value: includes the writing-rules skill for consistent hook authoring
+### Language Servers (LSP)
 
-## General Guidance
+| Plugin | Language |
+|--------|----------|
+| **typescript-lsp** | TypeScript/JavaScript |
+| **pyright-lsp** | Python |
+| **gopls-lsp** | Go |
+| **rust-analyzer-lsp** | Rust |
+| **clangd-lsp** | C/C++ |
+| **jdtls-lsp** | Java |
+| **kotlin-lsp** | Kotlin |
+| **swift-lsp** | Swift |
+| **csharp-lsp** | C# |
+| **php-lsp** | PHP |
+| **lua-lsp** | Lua |
 
-- Recommend a plugin over a one-off custom skill when the need is generic enough that it's likely already solved (document generation, frontend design conventions) — building custom in that case is wasted effort.
-- Recommend a custom skill instead when the workflow is specific to this codebase's conventions or tooling.
-- Check `ListPlugins`/marketplace availability before recommending — a great plugin is useless if it isn't accessible to the user's org.
+---
+
+## Quick Reference: Codebase → Plugin
+
+| Codebase Signal | Recommended Plugin |
+|-----------------|-------------------|
+| Building plugins | plugin-dev |
+| PR-based workflow | pr-review-toolkit |
+| Git commits | commit-commands |
+| React/Vue/Angular | frontend-design |
+| Want automation rules | hookify |
+| TypeScript project | typescript-lsp |
+| Python project | pyright-lsp |
+| Go project | gopls-lsp |
+| Security-sensitive code | security-guidance |
+| Learning/onboarding | explanatory-output-style |
+
+---
+
+## Plugin Management
+
+```bash
+# Install a plugin
+/plugin install <plugin-name>
+
+# List installed plugins
+/plugin list
+
+# View plugin details
+/plugin info <plugin-name>
+```
+
+---
+
+## When to Recommend Plugins
+
+**Recommend plugin installation when:**
+- User wants to install Claude Code automations from Anthropic's official repository or another shared marketplace
+- User needs multiple related capabilities
+- Team wants standardized workflows
+- First-time Claude Code setup
