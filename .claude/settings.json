@@ -3,5 +3,13 @@
     "allow": [
       "Skill(email-calendar-sync)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Read",
+        "hooks": [{"type": "command", "command": "bash .claude/hooks/block-credential-access.sh"}]
+      }
+    ]
   }
 }
