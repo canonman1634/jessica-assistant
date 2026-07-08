@@ -8,4 +8,13 @@ sessions/
 *.log
 .venv/
 venv/
-".env.example" 
+".env.example"
+
+# Memory system — vector index caches and per-user PII stay local, not in git.
+# (Procedural memory in skills/ IS meant to be tracked — that's methodology, not data.)
+memory/*/chroma_db/
+memory/*/cards/
+memory/staging/*.jsonl
+memory/staging/checkpoint_*.json
+memory_*.json
+!memory_default.json
