@@ -5,7 +5,9 @@ Receives a message from Jason, runs the agent with all tools, returns a reply st
 
 import json
 import logging
+import uuid
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import anthropic
@@ -16,12 +18,30 @@ from tools.email_tool import list_unread, search_emails, read_email, send_email
 from tools.calendar_tool import list_upcoming, check_availability, create_event, update_event
 from tools.phone_tool import make_call, check_call_status, get_transcript, list_recent_calls
 from tools.school_tool import check_school_updates, get_daily_report
-from tools.memory_tool import remember, forget, load_memory_for_prompt
+from tools.memory_tool import remember, forget, load_memory_for_prompt, load_relevant_memory_for_prompt
+from tools import vector_memory, staging
 
 logger = logging.getLogger(__name__)
 
 _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 _TZ = ZoneInfo(TZ)
+
+_SKILLS_DIR = Path(__file__).parent / "skills"
+
+# Tools whose successful calls are worth an episodic audit-trail entry.
+_EPISODIC_TOOLS = {
+    "send_email", "create_event", "update_event", "make_call",
+}
+
+
+def _load_procedural_memory() -> str:
+    """Concatenate the git-committed skill docs — how to act, loaded fresh every turn."""
+    if not _SKILLS_DIR.exists():
+        return ""
+    blocks = []
+    for path in sorted(_SKILLS_DIR.glob("*.md")):
+        blocks.append(path.read_text().strip())
+    return "\n\n---\n\n".join(blocks)
 
 # ── Tool registry ─────────────────────────────────────────────────────────────
 
@@ -67,7 +87,7 @@ _TOOLS = [
 _conversations: dict[str, list] = {}
 
 
-def _build_system_prompt() -> str:
+def _build_system_prompt(current_message: str = "") -> str:
     ctx = load_context()
     owner = ctx["owner"]["name"]
     tz = ctx["owner"]["timezone"]
@@ -78,6 +98,12 @@ def _build_system_prompt() -> str:
         for c in children
     )
     memory_block = load_memory_for_prompt()
+    procedural_block = _load_procedural_memory()
+
+    relevant_block = ""
+    if current_message:
+        relevant_block = load_relevant_memory_for_prompt(current_message)
+
     return f"""You are Jessica, a warm and friendly personal executive assistant for {owner}.
 
 ## Your personality
@@ -96,6 +122,9 @@ def _build_system_prompt() -> str:
 ## What you remember about {owner}
 {memory_block}
 
+## Relevant to this message
+{relevant_block or "(nothing specifically retrieved)"}
+
 ## Your capabilities
 - Check, search, and send emails (Gmail)
 - Check and create Google Calendar events
@@ -103,12 +132,29 @@ def _build_system_prompt() -> str:
 - Check school/daycare updates from My Bright Day
 - Remember and forget facts across sessions
 
+## How to operate each capability
+{procedural_block}
+
 ## Rules you ALWAYS follow
-1. **Phone calls**: Before making any call, tell {owner}: who you'll call, the number, and what you'll say. Wait for explicit approval ("yes", "go ahead", "do it") before using make_call.
-2. **Emails**: Before sending any email, show {owner} the full draft (To, Subject, Body). Wait for approval before using send_email.
-3. **Memory**: When {owner} shares a persistent fact (a contact, preference, or note worth keeping), call `remember` immediately. When asked to forget something, call `forget`.
-4. **Privacy**: Never store sensitive information beyond what's needed for the immediate task.
-5. **Uncertainty**: If unsure about a phone number, date, or detail — ask before acting."""
+1. **Privacy**: Never store sensitive information beyond what's needed for the immediate task.
+2. **Uncertainty**: If unsure about a phone number, date, or detail — ask before acting.
+3. Follow the per-capability rules above (email, calendar, phone, memory) exactly — they take precedence over general judgment."""
+
+
+def _log_episodic_tool_action(tool_name: str, args: dict, result_text: str) -> None:
+    """Write an audit-trail episodic card for an action Jessica actually took."""
+    summaries = {
+        "send_email": lambda a: f"Sent email to {a.get('to')} — subject: {a.get('subject')}",
+        "create_event": lambda a: f"Created calendar event '{a.get('title')}' on {a.get('date')} {a.get('start_time')}",
+        "update_event": lambda a: f"Updated calendar event {a.get('event_id')}",
+        "make_call": lambda a: f"Placed call to {a.get('phone_number')} — objective: {a.get('objective')}",
+    }
+    summary = summaries.get(tool_name, lambda a: f"Called {tool_name} with {a}")(args)
+    card_id = f"epi-{datetime.now(_TZ).strftime('%Y%m%d')}-{tool_name}-{uuid.uuid4().hex[:8]}"
+    vector_memory.add_episodic(card_id, summary, {
+        "type": "tool_action", "tool": tool_name,
+        "date": datetime.now(_TZ).isoformat(),
+    })
 
 
 async def _run_tool(name: str, args: dict) -> str:
@@ -178,7 +224,7 @@ async def run_agent(phone: str, message: str) -> str:
             response = _client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=4096,
-                system=_build_system_prompt(),
+                system=_build_system_prompt(message),
                 tools=_TOOLS,
                 messages=history,
             )
@@ -190,7 +236,7 @@ async def run_agent(phone: str, message: str) -> str:
             response = _client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=4096,
-                system=_build_system_prompt(),
+                system=_build_system_prompt(message),
                 tools=_TOOLS,
                 messages=history,
             )
@@ -206,6 +252,7 @@ async def run_agent(phone: str, message: str) -> str:
                 if hasattr(block, "text")
             ).strip()
             _conversations[phone] = history
+            staging.log_activity("turn", phone=phone, user_message=message, reply=reply)
             return reply or "Done!"
 
         if response.stop_reason == "tool_use":
@@ -219,6 +266,12 @@ async def run_agent(phone: str, message: str) -> str:
                         "tool_use_id": block.id,
                         "content": result_text,
                     })
+                    staging.log_activity(
+                        "tool_call", tool=block.name, args=block.input,
+                        result=result_text[:500],
+                    )
+                    if block.name in _EPISODIC_TOOLS and not result_text.lower().startswith(("error", "unknown tool")):
+                        _log_episodic_tool_action(block.name, block.input, result_text)
 
             history.append({"role": "user", "content": tool_results})
             continue
