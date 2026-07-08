@@ -39,6 +39,21 @@ collections for top-k relevant facts/events
 (`tools/memory_tool.load_relevant_memory_for_prompt`), injected into the
 system prompt alongside the always-loaded compact semantic summary.
 
+## One-time backfill
+
+The vector index was introduced after `memory_{user}.json` already existed
+in production, so `scripts/backfill_semantic_memory.py` indexes whatever is
+currently in that file into `memory/semantic/`. Run it once per deployed
+user after this change ships (safe to re-run — upserts are idempotent):
+
+```
+JESSICA_USER=<user> python scripts/backfill_semantic_memory.py
+```
+
+There's no equivalent for episodic memory — it didn't exist before, so
+there's no prior data to backfill; it starts accumulating from the first
+turn after deploy.
+
 ## Extending this
 
 - New tool categories → add a `skills/<name>.md` procedural doc; it's picked
