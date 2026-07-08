@@ -1,5 +1,13 @@
 {
-  "people": {},
-  "prefs": {},
-  "notes": []
+  "people": {
+    "Jason Cooper": "Owner. Phone: 773-270-2667. Email: jasonncooper@gmail.com"
+  },
+  "prefs": {
+    "vehicle": "2024 Hyundai Ioniq 6, VIN KMHM34AC3RA080180",
+    "preferred_hyundai_dealer": "Napleton Palatine Hyundai, 221 E Lake Cook Rd, Palatine, IL 60074, service (847) 348-6700"
+  },
+  "notes": [
+    "Recall 298 (Seat Belt Assembly) open on Jason's 2024 Ioniq 6 (VIN KMHM34AC3RA080180), no charge repair.",
+    "Held Fri 2026-07-10 2:00 PM on calendar to take car to Napleton Palatine Hyundai for recall 298 repair + tire rotation; appointment itself needs to be finalized via their site (847-348-6700) since online booking couldn't be automated."
+  ]
 }
