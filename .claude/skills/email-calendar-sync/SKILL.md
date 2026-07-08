@@ -30,6 +30,11 @@ depend on remembering earlier turns. Can also be run manually anytime.
      (restaurants, travel, medical, etc.), school/daycare notices with dates,
      meeting requests, and cancellation/reschedule notices. Ignore
      promotional/social mail with no concrete date or time.
+   - Emails from Julie Kennedy or any `barrington220.org` sender are from the
+     kids' school, not marketing — never dismiss them as promotional just
+     because the subject line reads like an ad (e.g. "BUY NOW"). Evaluate
+     them normally for concrete dates/deadlines (e.g. an order-by date) and
+     propose a calendar entry if one applies.
 
 2. **Label every candidate as reviewed immediately** (`label_message` or
    `label_thread` with the `jessica/calendar-reviewed` label ID from step 1)
