@@ -19,22 +19,25 @@ depend on remembering earlier turns. Can also be run manually anytime.
 ## Process
 
 1. **Find candidate emails.**
-   - Call `list_labels` and look for a label named exactly
-     `jessica/calendar-reviewed`. If it doesn't exist, create it with
-     `create_label` and note the `labelId` it returns.
+   - Call `list_labels` and look for two labels named exactly
+     `jessica-calendar-Added` and `jessica-calendar-NotAdded`. For any that
+     don't exist, create them with `create_label` and note the `labelId`s
+     returned.
    - `search_threads`'s `label:` filter takes a **label ID, not a display
-     name** — always resolve the ID via `list_labels` first, then search:
-     `-label:<labelId> newer_than:2d`. The 2-day window is a safety margin
-     in case a scheduled run is missed.
+     name** — always resolve the IDs via `list_labels` first, then search:
+     `-label:<addedLabelId> -label:<notAddedLabelId> newer_than:2d`. The
+     2-day window is a safety margin in case a scheduled run is missed.
    - Look for: appointment confirmations, event invitations, reservations
      (restaurants, travel, medical, etc.), school/daycare notices with dates,
      meeting requests, and cancellation/reschedule notices. Ignore
      promotional/social mail with no concrete date or time.
 
-2. **Label every candidate as reviewed immediately** (`label_message` or
-   `label_thread` with the `jessica/calendar-reviewed` label ID from step 1)
-   once you've looked at it — whether or not it turns into a proposal. This is
-   what stops the same email from being re-proposed on the next run.
+2. **Label every candidate `jessica-calendar-NotAdded` immediately**
+   (`label_message` or `label_thread`) once you've looked at it — whether or
+   not it turns into a proposal. This is what stops the same email from being
+   re-proposed on the next run. It gets upgraded to `jessica-calendar-Added`
+   in step 5 if the user approves a change that's actually applied to the
+   calendar; otherwise it stays `NotAdded`.
 
 3. **Cross-reference the calendar** for each calendar-relevant email
    (`list_events` / `get_event` around the relevant date):
@@ -73,12 +76,18 @@ depend on remembering earlier turns. Can also be run manually anytime.
      counts backwards from midnight into the previous day, which is wrong
      here.
    - Confirm what was actually changed after applying.
+   - For each email whose proposal was approved and applied (ADD, EDIT, or
+     DELETE), swap its label from `jessica-calendar-NotAdded` to
+     `jessica-calendar-Added` (`unlabel_message`/`unlabel_thread` the old one,
+     `label_message`/`label_thread` the new one). Emails whose proposals were
+     rejected, skipped, or never responded to keep `jessica-calendar-NotAdded`.
 
 ## Rules
 
 - Never create, edit, or delete a calendar event without explicit approval
   given in the conversation.
-- Never re-propose an email already labeled `jessica/calendar-reviewed`.
+- Never re-propose an email already labeled `jessica-calendar-Added` or
+  `jessica-calendar-NotAdded`.
 - If an email is ambiguous (unclear date/time, unclear if still relevant),
   include it as a proposal with the ambiguity called out rather than guessing.
 - Default to the user's primary calendar; check `list_calendars` if context
