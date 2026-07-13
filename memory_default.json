@@ -1,5 +1,15 @@
 {
-  "people": {},
-  "prefs": {},
-  "notes": []
+  "people": {
+    "Tara Kelleher": "Buyer's real estate agent for the Barrington home purchase. Contact info on file in email history.",
+    "Jennifer Cooper": "Jason's wife / co-buyer on the Barrington home purchase."
+  },
+  "prefs": {
+    "financial_scenario_modeling": "For financial/decision models, prefers an interactive HTML artifact (private, not committed to the repo unless asked) with weighted scenario cards (% likelihood per scenario), a live calculator with editable assumptions, and a red-team section stress-testing the assumptions."
+  },
+  "notes": [
+    "Buying 1459 S Shore Ct, Barrington, IL 60010 (Fox Point subdivision, Lake County / Cuba Township) for $1,050,000. Offer in progress as of July 2026; closing date July 31, 2026.",
+    "Financing for the Barrington purchase: $275,500 down (26.24%), $774,500 loan, 30-yr fixed at 6.375% — no PMI. Lender Fairway, loan in underwriting.",
+    "Barrington purchase tax context: 2025 tax bill was $16,321.54 (assessed value $236,515, rate 7.142439/$100 EAV). Illinois/Lake County taxes are paid in arrears, so buyer takes on the full 2026 bill (payable 2027) and negotiates a seller proration credit for Jan 1-closing (worksheet range $9,480-$14,186). Next Lake County quadrennial reassessment is 2027 (payable 2028) - a 2026 purchase won't affect the county's assessment until then.",
+    "Built a reusable Lake County IL property tax & PITI modeler (private Claude artifact) for the Barrington purchase, pre-loaded with 1459 S Shore Ct and 7 Fox Point comps: https://claude.ai/code/artifact/dcdccf3d-904d-4731-87ca-c5b6e8bff599"
+  ]
 }
