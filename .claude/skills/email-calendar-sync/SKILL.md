@@ -30,6 +30,10 @@ depend on remembering earlier turns. Can also be run manually anytime.
      (restaurants, travel, medical, etc.), school/daycare notices with dates,
      meeting requests, and cancellation/reschedule notices. Ignore
      promotional/social mail with no concrete date or time.
+   - Do not propose calendar entries for Amazon/grocery order or delivery
+     notifications (e.g. Amazon Fresh delivery windows) — the user has said
+     these should never get calendar invites, even when they include a
+     specific delivery time window.
 
 2. **Label every candidate as reviewed immediately** (`label_message` or
    `label_thread` with the `jessica/calendar-reviewed` label ID from step 1)
