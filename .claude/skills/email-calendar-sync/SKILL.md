@@ -1,6 +1,6 @@
 ---
 name: email-calendar-sync
-description: Scans Gmail for calendar-relevant messages (appointments, invitations, reservations, deadlines, cancellations), proposes calendar additions/edits/deletions, and applies only what the user approves. Runs twice daily via a scheduled Routine; can also be invoked manually to check for updates immediately.
+description: Scans Gmail for calendar-relevant messages (appointments, invitations, reservations, deadlines, cancellations). Auto-applies clear-cut new events straight to the calendar and holds anything ambiguous or risky (edits/deletes of existing events, unclear dates) for approval. Always sends a push notification summarizing what happened. Runs twice daily via a scheduled Routine; can also be invoked manually to check for updates immediately.
 ---
 
 # Email → Calendar Sync
@@ -38,31 +38,45 @@ depend on remembering earlier turns. Can also be run manually anytime.
 
 3. **Cross-reference the calendar** for each calendar-relevant email
    (`list_events` / `get_event` around the relevant date):
-   - No matching event exists → propose an **ADD**.
+   - No matching event exists → this is a candidate **ADD**.
    - A matching event exists but details differ (time, location, title) →
-     propose an **EDIT**.
-   - The email cancels or reschedules an existing event → propose a
-     **DELETE** (or an EDIT if it's a reschedule of the same event).
+     this is a candidate **EDIT**.
+   - The email cancels or reschedules an existing event → this is a
+     candidate **DELETE** (or an EDIT if it's a reschedule of the same
+     event).
    - Match events by more than just title (time, attendees) to avoid false
      positives against unrelated events with similar names.
 
-4. **Present proposals — do not apply anything yet.**
-   - Post a concise, numbered list. For each item include: action
-     (ADD/EDIT/DELETE), title, date/time, location, and a one-line source
-     (`from: <subject> — <sender>`).
-   - If there's at least one proposal, send a `PushNotification` summarizing
-     it in one line (e.g. "3 calendar items to review from this morning's
-     email scan") so the user knows a review is waiting even if they're away.
+4. **Auto-apply clear-cut ADDs; hold everything else for approval.**
+   - A **new** event (no existing calendar entry to conflict with) counts as
+     clear-cut when the email states an unambiguous date, start time (or
+     clearly all-day), and — if relevant — location, without conflicting
+     information elsewhere in the thread. Apply these immediately with
+     `create_event`, including the `jennifer.a.hinz@gmail.com` attendee and
+     any reminder handling below. This covers things like a coach's practice
+     schedule, a confirmed appointment, or a reservation with a stated time.
+   - Everything else stays a **proposal, not applied**: any **EDIT** or
+     **DELETE** of an existing event (these touch something already on the
+     calendar and a wrong guess is costly), and any **ADD** that's ambiguous
+     (fuzzy date/time, conflicting details, unclear if still relevant, or a
+     tentative/"TBD" placeholder).
+   - Post one concise summary covering both: what was auto-applied (title,
+     date/time, location, one-line source `from: <subject> — <sender>`) and
+     what's pending review as a numbered list (action, title, date/time,
+     location, source, and — for proposals — the reason it wasn't
+     auto-applied).
+   - Always send a `PushNotification` after a run that found anything —
+     applied or pending — summarizing it in one line (e.g. "Added 4 Steelers
+     practices to your calendar" or "2 added, 1 item needs your review").
+     Don't let auto-applied changes go unnoticed just because they didn't
+     need approval.
    - If nothing relevant was found, say so briefly (e.g. "No calendar updates
      from this scan.") and stop there — no notification needed.
-   - End your turn without calling `create_event`, `update_event`, or
-     `delete_event`. The user may not reply until much later — that's
-     expected.
 
-5. **Apply on approval.**
+5. **Apply proposals on approval.**
    - When the user replies (in this same session, whenever that happens)
-     approving some or all items, apply exactly what was approved with
-     `create_event` / `update_event` / `delete_event`.
+     approving some or all pending items, apply exactly what was approved
+     with `create_event` / `update_event` / `delete_event`.
    - If they approve with a correction ("yes but push it to 3pm"), apply
      their correction, not the original proposal.
    - Always add `jennifer.a.hinz@gmail.com` as an attendee on every calendar
@@ -76,11 +90,14 @@ depend on remembering earlier turns. Can also be run manually anytime.
 
 ## Rules
 
-- Never create, edit, or delete a calendar event without explicit approval
-  given in the conversation.
-- Never re-propose an email already labeled `jessica/calendar-reviewed`.
+- Never edit or delete an existing calendar event without explicit approval
+  given in the conversation. Clear-cut new events (see step 4) may be added
+  without waiting for approval, but must always be reported via a
+  `PushNotification` so nothing goes on the calendar unnoticed.
+- Never re-propose or re-add from an email already labeled
+  `jessica/calendar-reviewed`.
 - If an email is ambiguous (unclear date/time, unclear if still relevant),
-  include it as a proposal with the ambiguity called out rather than guessing.
+  hold it as a proposal with the ambiguity called out rather than guessing.
 - Default to the user's primary calendar; check `list_calendars` if context
   suggests a different one (e.g. a shared family calendar).
 - Every calendar entry this skill creates or updates must include
