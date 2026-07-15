@@ -4,7 +4,8 @@
     "Jennifer Cooper": "Jason's wife / co-buyer on the Barrington home purchase."
   },
   "prefs": {
-    "financial_scenario_modeling": "For financial/decision models, prefers an interactive HTML artifact (private, not committed to the repo unless asked) with weighted scenario cards (% likelihood per scenario), a live calculator with editable assumptions, and a red-team section stress-testing the assumptions."
+    "financial_scenario_modeling": "For financial/decision models, prefers an interactive HTML artifact (private, not committed to the repo unless asked) with weighted scenario cards (% likelihood per scenario), a live calculator with editable assumptions, and a red-team section stress-testing the assumptions.",
+    "location": "Deer Park, IL"
   },
   "notes": [
     "Buying 1459 S Shore Ct, Barrington, IL 60010 (Fox Point subdivision, Lake County / Cuba Township) for $1,050,000. Offer in progress as of July 2026; closing date July 31, 2026.",
