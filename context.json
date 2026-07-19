@@ -1,7 +1,8 @@
 {
   "owner": {
     "name": "Jason",
-    "timezone": "America/Chicago"
+    "timezone": "America/Chicago",
+    "location": "Deer Park, IL 60010"
   },
   "children": [
     {
