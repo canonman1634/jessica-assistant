@@ -1,29 +1,27 @@
 """
-Jessica — Anthropic SDK orchestrator.
-Receives a message from Jason, runs the agent with all tools, returns a reply string.
+Jessica — tool registry and system-prompt builder.
+Defines the tools and per-capability skill docs an agent acts as Jessica
+with; see skills/*.md for the procedural instructions each tool follows.
 """
 
-import json
 import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import anthropic
-
-from config import load_context, ANTHROPIC_API_KEY, TZ
-from session_store import get_session_id, save_session_id
+from config import load_context, TZ
 from tools.email_tool import list_unread, search_emails, read_email, send_email
 from tools.calendar_tool import list_upcoming, check_availability, create_event, update_event
 from tools.phone_tool import make_call, check_call_status, get_transcript, list_recent_calls
 from tools.school_tool import check_school_updates, get_daily_report
+from tools.restaurant_tool import search_restaurants, get_restaurant_details
+from tools.home_services_tool import search_home_services, get_home_service_details
 from tools.memory_tool import remember, forget, load_memory_for_prompt, load_relevant_memory_for_prompt
-from tools import vector_memory, staging
+from tools import vector_memory
 
 logger = logging.getLogger(__name__)
 
-_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 _TZ = ZoneInfo(TZ)
 
 _SKILLS_DIR = Path(__file__).parent / "skills"
@@ -60,6 +58,10 @@ _TOOL_HANDLERS = {
     "list_recent_calls": list_recent_calls,
     "check_school_updates": check_school_updates,
     "get_daily_report": get_daily_report,
+    "search_restaurants": search_restaurants,
+    "get_restaurant_details": get_restaurant_details,
+    "search_home_services": search_home_services,
+    "get_home_service_details": get_home_service_details,
     "remember": remember,
     "forget": forget,
 }
@@ -79,12 +81,13 @@ _TOOLS = [
     {"name": "list_recent_calls", "description": "List recent Bland.ai calls with their status and outcomes.", "input_schema": {"type": "object", "properties": {"limit": {"type": "integer"}}}},
     {"name": "check_school_updates", "description": "Check for recent My Bright Day / Bright Horizons emails. Returns updates from the last N days.", "input_schema": {"type": "object", "properties": {"days_back": {"type": "integer"}}}},
     {"name": "get_daily_report", "description": "Get the full content of the most recent My Bright Day daily report email.", "input_schema": {"type": "object", "properties": {}}},
+    {"name": "search_restaurants", "description": "Look up restaurants near a location via a headless browser against Google Maps (primary, 4.5+ rating / 100+ reviews), Yelp (4.0+ rating / 100+ reviews), and TripAdvisor (shown unfiltered, reference only), labeled by source (a source is noted if it fails to parse or gets blocked). No phone numbers are returned. Pass a specific town/suburb/neighborhood as location, not a wide region.", "input_schema": {"type": "object", "properties": {"location": {"type": "string"}, "term": {"type": "string"}}, "required": ["location"]}},
+    {"name": "get_restaurant_details", "description": "Look up a specific restaurant by name + location across Google, Yelp, and TripAdvisor (via headless browser) for rating and review count, labeled by source. No phone numbers are returned.", "input_schema": {"type": "object", "properties": {"name": {"type": "string"}, "location": {"type": "string"}}, "required": ["name", "location"]}},
+    {"name": "search_home_services", "description": "Look up a home services provider (insulation, handyman, plumbing, electrical, roofing, HVAC, etc.) via a headless browser. Always scoped to zip 60010 (Barrington) unless a different location is explicitly given. Yelp is the primary filter (4.0+ rating / 50+ reviews); Google Maps is shown unfiltered, as a reference only. No API keys, no phone numbers returned.", "input_schema": {"type": "object", "properties": {"location": {"type": "string"}, "service": {"type": "string"}}, "required": ["service"]}},
+    {"name": "get_home_service_details", "description": "Look up a specific home services provider by name on Yelp and Google Maps for rating and review count. Defaults to the 60010 area unless a different location is given.", "input_schema": {"type": "object", "properties": {"name": {"type": "string"}, "location": {"type": "string"}}, "required": ["name"]}},
     {"name": "remember", "description": "Persist a fact for future sessions. category: 'people' (key=name, value=description), 'prefs' (key=preference, value=value), or 'notes' (key=the note itself). Call this whenever Jason shares a persistent fact (a contact, preference, or anything worth keeping).", "input_schema": {"type": "object", "properties": {"category": {"type": "string", "enum": ["people", "prefs", "notes"]}, "key": {"type": "string"}, "value": {"type": "string"}}, "required": ["category", "key"]}},
     {"name": "forget", "description": "Remove a stored fact from memory. Provide category and the key (or keyword for notes) to delete.", "input_schema": {"type": "object", "properties": {"category": {"type": "string", "enum": ["people", "prefs", "notes"]}, "key": {"type": "string"}}, "required": ["category", "key"]}},
 ]
-
-# ── Conversation history (in-memory, keyed by phone number) ───────────────────
-_conversations: dict[str, list] = {}
 
 
 def _build_system_prompt(current_message: str = "") -> str:
@@ -110,7 +113,7 @@ def _build_system_prompt(current_message: str = "") -> str:
 - Warm, personable, and efficient — like a trusted friend who happens to be incredibly organized
 - Concise but never cold; use a natural, conversational tone
 - Use first names when referring to family members
-- Respond via WhatsApp, so keep things readable: use short paragraphs or bullet points for lists
+- Keep replies readable: short paragraphs or bullet points for lists
 
 ## Family context
 - Owner: {owner} (timezone: {tz})
@@ -164,119 +167,3 @@ async def _run_tool(name: str, args: dict) -> str:
     result = await handler(args)
     content = result.get("content", [])
     return "\n".join(c.get("text", "") for c in content if c.get("type") == "text")
-
-
-def _sanitize_history(history: list) -> list:
-    """Remove any tool_use/tool_result pairs that are incomplete or unmatched."""
-    clean = []
-    for msg in history:
-        content = msg.get("content", "")
-        # Skip assistant messages that contain tool_use blocks without following tool_results
-        if msg["role"] == "assistant" and isinstance(content, list):
-            has_tool_use = any(
-                getattr(b, "type", None) == "tool_use" or (isinstance(b, dict) and b.get("type") == "tool_use")
-                for b in content
-            )
-            if has_tool_use:
-                # Only keep if the next message is a tool_result
-                idx = history.index(msg)
-                if idx + 1 >= len(history):
-                    continue  # Drop dangling tool_use at end of history
-                next_msg = history[idx + 1]
-                next_content = next_msg.get("content", [])
-                if not isinstance(next_content, list) or not any(
-                    (isinstance(b, dict) and b.get("type") == "tool_result") for b in next_content
-                ):
-                    continue  # Drop unmatched tool_use
-        # Skip orphaned tool_result messages
-        if msg["role"] == "user" and isinstance(content, list) and content and (
-            isinstance(content[0], dict) and content[0].get("type") == "tool_result"
-        ):
-            idx = history.index(msg)
-            if idx == 0:
-                continue
-            prev_msg = history[idx - 1]
-            prev_content = prev_msg.get("content", [])
-            if not isinstance(prev_content, list) or not any(
-                getattr(b, "type", None) == "tool_use" or (isinstance(b, dict) and b.get("type") == "tool_use")
-                for b in prev_content
-            ):
-                continue
-        clean.append(msg)
-    return clean
-
-
-async def run_agent(phone: str, message: str) -> str:
-    """Process an incoming WhatsApp message and return Jessica's reply."""
-    if phone not in _conversations:
-        _conversations[phone] = []
-
-    # Sanitize history before appending new message
-    _conversations[phone] = _sanitize_history(_conversations[phone])
-    _conversations[phone].append({"role": "user", "content": message})
-
-    # Keep last 20 messages to avoid context blowout
-    history = _conversations[phone][-20:]
-
-    max_iterations = 10
-    for _ in range(max_iterations):
-        try:
-            response = _client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=4096,
-                system=_build_system_prompt(message),
-                tools=_TOOLS,
-                messages=history,
-            )
-        except Exception as e:
-            # If API rejects the history, clear it and retry with just the current message
-            logger.warning("API error with history, resetting conversation: %s", e)
-            _conversations[phone] = []
-            history = [{"role": "user", "content": message}]
-            response = _client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=4096,
-                system=_build_system_prompt(message),
-                tools=_TOOLS,
-                messages=history,
-            )
-
-        # Add assistant response to history
-        assistant_content = response.content
-        history.append({"role": "assistant", "content": assistant_content})
-        logger.info("Stop reason: %s", response.stop_reason)
-
-        if response.stop_reason == "end_turn":
-            reply = "\n".join(
-                block.text for block in assistant_content
-                if hasattr(block, "text")
-            ).strip()
-            _conversations[phone] = history
-            staging.log_activity("turn", phone=phone, user_message=message, reply=reply)
-            return reply or "Done!"
-
-        if response.stop_reason == "tool_use":
-            tool_results = []
-            for block in assistant_content:
-                if block.type == "tool_use":
-                    logger.info("Calling tool: %s with %s", block.name, block.input)
-                    result_text = await _run_tool(block.name, block.input)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result_text,
-                    })
-                    staging.log_activity(
-                        "tool_call", tool=block.name, args=block.input,
-                        result=result_text[:500],
-                    )
-                    if block.name in _EPISODIC_TOOLS and not result_text.lower().startswith(("error", "unknown tool")):
-                        _log_episodic_tool_action(block.name, block.input, result_text)
-
-            history.append({"role": "user", "content": tool_results})
-            continue
-
-        break
-
-    _conversations[phone] = history
-    return "Sorry, I ran into an issue. Please try again!"

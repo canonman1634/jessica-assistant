@@ -265,3 +265,8 @@ def _send_dream_report(summary: dict) -> None:
         )
     except Exception:
         logger.exception("Failed to send dream report email")
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    print(dream())

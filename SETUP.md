@@ -1,6 +1,8 @@
 # Jessica Setup Guide
 
-Follow these steps in order to get Jessica running.
+Follow these steps in order to get Jessica running. Jessica is used through
+Claude Code sessions in this repo — there's no standalone server or phone
+number to connect.
 
 ---
 
@@ -10,6 +12,7 @@ Follow these steps in order to get Jessica running.
 python -m venv venv
 venv\Scripts\activate       # Windows
 pip install -r requirements.txt
+playwright install --with-deps chromium
 ```
 
 ---
@@ -27,12 +30,7 @@ Open `.env` and fill in:
 | Variable | Where to find it |
 |---|---|
 | `ANTHROPIC_API_KEY` | https://console.anthropic.com → API Keys |
-| `TWILIO_ACCOUNT_SID` | https://console.twilio.com → Account Info |
-| `TWILIO_AUTH_TOKEN` | https://console.twilio.com → Account Info |
-| `TWILIO_PHONE_NUMBER` | Your Twilio phone number in E.164 format (e.g. `+12145551234`) |
-| `MY_PHONE_NUMBER` | Your personal cell number in E.164 format |
 | `BLAND_API_KEY` | https://app.bland.ai → Settings → API Keys |
-| `FLASK_SECRET_KEY` | Run: `python -c "import secrets; print(secrets.token_hex(32))"` |
 
 ---
 
@@ -79,71 +77,18 @@ Jessica will find updates by searching your Gmail for Bright Horizons emails.
 
 ---
 
-## Step 5 — Deploy to Railway
+## Step 5 — Run memory consolidation
 
-1. Initialize git and push to GitHub:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial Jessica setup"
-   # Create a GitHub repo and push to it
-   git remote add origin https://github.com/YOUR_USERNAME/jessica-assistant.git
-   git push -u origin main
-   ```
+`dreamer.py` deduplicates semantic memory and distills the day's staged
+activity into episodic memory — previously run nightly by a background
+scheduler, now run on demand:
 
-2. In Railway (https://railway.app):
-   - New Project → Deploy from GitHub repo → select your repo
-   - Add environment variables (copy from your `.env` file)
-   - **Important**: Also add `GOOGLE_TOKEN_JSON` — see note below
-
-3. **Google token on Railway**: Since Railway can't run the browser OAuth flow, you need to encode your token:
-   ```bash
-   # On your local machine after completing Step 3:
-   python -c "
-   import json, base64
-   token = open('credentials/google_token.json').read()
-   print(base64.b64encode(token.encode()).decode())
-   "
-   ```
-   Add this as `GOOGLE_TOKEN_B64` in Railway environment variables.
-   
-   Then update `tools/_google_auth.py` to handle this — or just use Railway's volume mount for the credentials folder.
-   
-   **Easiest approach**: Use Railway's persistent volume and upload the token file via Railway CLI:
-   ```bash
-   railway run -- python -c "from tools._google_auth import get_google_credentials; get_google_credentials()"
-   ```
-
-4. Railway will auto-detect the `Procfile` and deploy. Your app URL will be something like:
-   `https://jessica-assistant-production.up.railway.app`
-
----
-
-## Step 6 — Connect Twilio webhook
-
-1. Go to https://console.twilio.com
-2. Phone Numbers → Manage → your number
-3. Under **Messaging** → **A message comes in**:
-   - Webhook URL: `https://YOUR-RAILWAY-URL.up.railway.app/sms`
-   - Method: `HTTP POST`
-4. Save
-
----
-
-## Step 7 — Test it!
-
-Text your Twilio number from your personal phone:
-
-```
-Hello Jessica!
+```bash
+python dreamer.py
 ```
 
-You should get a warm reply back. Then try:
-
-- "Check my email"
-- "What's on my calendar this week?"
-- "Any updates from daycare?"
-- "Call [provider name] at [number] to schedule a checkup for Graham"
+Set up a Claude Code Routine if you want this on a recurring cadence instead
+of running it manually.
 
 ---
 
@@ -159,8 +104,6 @@ Edit `context.json` to add your doctors, dentists, etc.:
   ]
 }
 ```
-
-Redeploy after editing, or use Railway's file editor.
 
 ---
 
@@ -184,10 +127,7 @@ Edit `context.json` → `vip_senders.list`:
 
 | Service | Cost |
 |---|---|
-| Twilio phone number | ~$1.00/mo |
-| Twilio SMS | ~$0.0079/message |
 | Bland.ai (free tier) | $0.14/connected minute for calls |
 | Claude API | ~$5–20/mo |
-| Railway | Free tier (500 hrs/mo), or $5/mo for always-on |
 | Gmail + Calendar API | Free |
-| **Total** | **~$10–25/mo** |
+| **Total** | **~$5–20/mo** |

@@ -3,7 +3,8 @@
 How Jessica's memory system is wired, so this survives across sessions and
 future changes are made with the whole picture in view. Adapted from the
 layered procedural/semantic/episodic pattern (originally written up for an
-FP&A forecast agent) to a single-user WhatsApp assistant.
+FP&A forecast agent) to a single-user assistant used through Claude Code
+sessions.
 
 ## Layers
 
@@ -11,7 +12,7 @@ FP&A forecast agent) to a single-user WhatsApp assistant.
 |---|---|---|---|
 | Procedural (how to act) | `skills/*.md` | Concatenated into the system prompt every turn | Git commits (methodology changes only) |
 | Semantic (durable facts) | `memory_{user}.json` + `memory/semantic/` | Full dump every turn (small) + top-k retrieval by relevance | `remember`/`forget` tool calls |
-| Episodic (dated events) | `memory/episodic/` | Top-k retrieval by relevance to the current message | Immediate tool-action logging (`agent.py`) + nightly session-summary distillation (`dreamer.py`) |
+| Episodic (dated events) | `memory/episodic/` | Top-k retrieval by relevance to the current message | Immediate tool-action logging (`agent.py`) + session-summary distillation (`dreamer.py`, run on demand or via a Routine) |
 | Working memory | Assembled fresh in `agent.py._build_system_prompt` | N/A — ephemeral, rebuilt every turn | N/A |
 
 ## Write path
@@ -24,7 +25,7 @@ FP&A forecast agent) to a single-user WhatsApp assistant.
    deterministic, no LLM needed, since it's just recording what happened.
 3. `remember` / `forget` write semantic facts immediately (JSON + vector
    card) and stage a `decision` activity entry.
-4. Nightly at 3 AM CT (`scheduler.py` → `dreamer.py`):
+4. On demand (`python dreamer.py`, or a Claude Code Routine on a schedule):
    - **Semantic pass**: Haiku dedupes/normalizes `memory_{user}.json`.
    - **Episodic pass**: Haiku distills the day's staged turns (user message
      + reply) into compact, dated session-summary cards, then advances the
@@ -34,10 +35,12 @@ FP&A forecast agent) to a single-user WhatsApp assistant.
 
 ## Retrieval path
 
-Every turn, `agent.py` embeds the incoming message and queries both Chroma
-collections for top-k relevant facts/events
+`agent.py._build_system_prompt` embeds the incoming message and queries both
+Chroma collections for top-k relevant facts/events
 (`tools/memory_tool.load_relevant_memory_for_prompt`), injected into the
-system prompt alongside the always-loaded compact semantic summary.
+system prompt alongside the always-loaded compact semantic summary. Whatever
+is acting as Jessica in a given session is responsible for calling this to
+build its system prompt.
 
 ## One-time backfill
 
@@ -54,11 +57,32 @@ There's no equivalent for episodic memory — it didn't exist before, so
 there's no prior data to backfill; it starts accumulating from the first
 turn after deploy.
 
+## Two separate skill systems — don't confuse them
+
+- `skills/*.md` (this dir, top-level) — Jessica's own procedural docs,
+  written for `agent.py._load_procedural_memory` to concatenate into a
+  system prompt. **Nothing currently calls that path** (the WhatsApp loop
+  that used to call it is gone), so a file living only here will not
+  auto-trigger in a Claude Code session.
+- `.claude/skills/<name>/SKILL.md` — real Claude Code skills, auto-loaded
+  and auto-triggered by Claude Code itself based on the `description` in
+  their frontmatter (e.g. `email-calendar-sync`, `restaurant-reservations`,
+  `home-services`). These are what actually fire when you talk to a fresh
+  Claude Code session. They call Jessica's Python tools via
+  `python scripts/run_tool.py <tool_name> '<json args>'` (Bash) rather than
+  as native tool calls, since those tools were built for `agent.py`'s
+  registry, not for Claude Code directly.
+
+If a capability needs to work from a Claude Code session, it needs a
+`.claude/skills/` entry — a `skills/*.md` file alone won't be seen.
+
 ## Extending this
 
-- New tool categories → add a `skills/<name>.md` procedural doc; it's picked
-  up automatically (`agent.py` globs `skills/*.md`).
+- New tool categories → add the Python tool function (`tools/<name>.py`)
+  and register it in `agent.py`'s `_TOOL_HANDLERS`/`_TOOLS`, then add a
+  `.claude/skills/<name>/SKILL.md` that calls it via
+  `scripts/run_tool.py` (see above).
 - New semantic fact types → just call `remember` with a new `category`; no
   code change needed unless it needs its own retrieval shaping.
-- Consolidation cadence is the deterministic nightly cron in
-  `scheduler.py` — change the trigger there, not with a vibe.
+- Consolidation cadence is whatever you set up to call `dreamer.py` (manual
+  run or a Claude Code Routine) — there's no background cron anymore.
