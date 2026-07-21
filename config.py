@@ -9,6 +9,8 @@ load_dotenv()
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 BLAND_API_KEY = os.environ["BLAND_API_KEY"]
 YELP_API_KEY = os.environ.get("YELP_API_KEY", "")
+GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "")
+TRIPADVISOR_API_KEY = os.environ.get("TRIPADVISOR_API_KEY", "")
 MY_EMAIL = os.environ.get("MY_EMAIL", "")
 
 # ── User identity (determines which memory file is used) ─────────────────────

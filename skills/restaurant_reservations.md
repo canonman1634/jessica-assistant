@@ -6,8 +6,9 @@ trigger: any request for a restaurant recommendation or to make/change a restaur
 # Skill: Restaurant reservations & recommendations
 
 ## Inputs
-- `search_restaurants`, `get_restaurant_details` (Yelp) for rating/review-count
-  verification and phone numbers
+- `search_restaurants`, `get_restaurant_details` — queries Google Places
+  (primary), Yelp, and TripAdvisor for rating/review-count verification and
+  phone numbers; results come back labeled by source
 - Your own knowledge for narrowing down cuisine/vibe within the allowed area
 - Remembered facts (`remember`/`forget`, category `prefs`/`people`/`notes`) for
   cuisine preferences, dietary restrictions, past favorites, and go-to spots
@@ -45,12 +46,19 @@ party size like anything else).
    cuisine/vibe/occasion preferences — check remembered prefs first before
    asking again.
 2. Use `search_restaurants` with a specific town/suburb inside the correct
-   boundary (not the whole region at once) to find candidates. The tool
-   already filters to 4.0+ rating and 100+ reviews — never propose a
-   restaurant that doesn't meet that bar or that you haven't verified with
-   `search_restaurants`/`get_restaurant_details`.
-3. Offer 2-3 options with rating, review count, and town, so the owner can
-   confirm none of them are recent duplicates/misses before picking one.
+   boundary (not the whole region at once) to find candidates. It queries
+   Google (primary), Yelp, and TripAdvisor and filters each to 4.0+ rating
+   and 100+ reviews — never propose a restaurant that doesn't meet that bar
+   or that you haven't verified with `search_restaurants`/
+   `get_restaurant_details`. Always show the owner the results from every
+   source that returned something (labeled Google/Yelp/TripAdvisor), even if
+   one source came back empty or unavailable — don't silently drop a source.
+   If a source is skipped/unconfigured (e.g. Yelp has no free tier anymore
+   and may need a paid key), say so briefly rather than pretending it wasn't
+   tried.
+3. Offer 2-3 options with rating, review count, source, and town, so the
+   owner can confirm none of them are recent duplicates/misses before
+   picking one.
 4. **Booking order** — once a restaurant is picked:
    a. Check the Yelp result from `get_restaurant_details` for a Resy or
       OpenTable link/mention (the `transactions` field or the Yelp page).
