@@ -6,37 +6,80 @@ trigger: any request for a restaurant recommendation or to make/change a restaur
 # Skill: Restaurant reservations & recommendations
 
 ## Inputs
-- Your own knowledge for recommendations (no live search tool exists yet)
+- `search_restaurants`, `get_restaurant_details` (Yelp) for rating/review-count
+  verification and phone numbers
+- Your own knowledge for narrowing down cuisine/vibe within the allowed area
 - Remembered facts (`remember`/`forget`, category `prefs`/`people`/`notes`) for
   cuisine preferences, dietary restrictions, past favorites, and go-to spots
-- Bland.ai via `make_call`, `check_call_status`, `get_transcript` to actually
-  place a reservation call
+- Bland.ai via `make_call`, `check_call_status`, `get_transcript` for phone
+  reservations when no online booking is available
+
+## Group boundaries
+First question, always: **"Is this me and Jen, or the foodboyz?"** (unless
+already stated). This sets both the search area and the party size — don't
+ask party size separately for these two groups.
+
+- **Me and Jen** (party of 2) — restaurant must be within: as far north as
+  Deer Park / Lake Forest, as far south as Schaumburg, including Libertyville
+  and Vernon Hills. Roughly the north/northwest corridor (e.g. Deer Park, Lake
+  Zurich, Long Grove, Buffalo Grove, Wheeling, Lincolnshire, Libertyville,
+  Vernon Hills, Mundelein, Lake Forest, Lake Bluff, Highland Park, Northbrook,
+  Deerfield, Schaumburg, Hoffman Estates, Palatine, Arlington Heights).
+- **Foodboyz** (party of 4) — restaurant must be within: as far south/east as
+  Edison Park, west to Barrington, then from Barrington south to Lombard.
+  Roughly the northwest corridor (e.g. Edison Park, Park Ridge, Niles, Des
+  Plaines, Mount Prospect, Elk Grove Village, Arlington Heights, Palatine,
+  Barrington, Streamwood, Hanover Park, Bartlett, Roselle, Itasca, Wood Dale,
+  Elmhurst, Villa Park, Lombard).
+
+If a candidate town's placement inside/outside a boundary is genuinely
+ambiguous, ask the owner rather than guessing — don't silently include or
+exclude a borderline suburb.
+
+If someone other than these two groups is named, ask who's going and treat it
+as a normal recommendation (no fixed boundary/party size — ask for area and
+party size like anything else).
 
 ## Procedure
-1. **Recommendations**: ask enough to narrow it down — cuisine, neighborhood/
-   city, party size, occasion, budget — using what's already remembered about
-   the owner's tastes before asking again. Offer 2-3 options with a short
-   reason each, not an exhaustive list.
-2. **Reservations**: once a restaurant is picked, you need its phone number.
-   If it's not already known from context/memory, ask the owner for it rather
-   than guessing — don't invent or look up a phone number.
-3. Confirm restaurant name, phone number, date, time, and party size with the
-   owner before calling.
-4. Follow the phone-calls skill: state who you'll call, the number, and the
-   objective ("reserve a table for N at [time] on [date] under the name
-   [owner]"), then wait for explicit approval before `make_call`.
-5. After the call, report back the outcome (confirmed / waitlisted / needs a
-   different time) from `check_call_status`/`get_transcript`.
-6. If the owner mentions a lasting preference (favorite restaurant, dietary
+1. Ask who's going (see boundaries above) if not already stated, plus
+   cuisine/vibe/occasion preferences — check remembered prefs first before
+   asking again.
+2. Use `search_restaurants` with a specific town/suburb inside the correct
+   boundary (not the whole region at once) to find candidates. The tool
+   already filters to 4.0+ rating and 100+ reviews — never propose a
+   restaurant that doesn't meet that bar or that you haven't verified with
+   `search_restaurants`/`get_restaurant_details`.
+3. Offer 2-3 options with rating, review count, and town, so the owner can
+   confirm none of them are recent duplicates/misses before picking one.
+4. **Booking order** — once a restaurant is picked:
+   a. Check the Yelp result from `get_restaurant_details` for a Resy or
+      OpenTable link/mention (the `transactions` field or the Yelp page).
+   b. If nothing conclusive there, ask the owner to confirm whether the
+      restaurant takes Resy or OpenTable bookings — you don't have direct
+      Resy/OpenTable account access, so you can't silently browse either
+      platform.
+   c. If neither applies (or the owner isn't sure), fall back to calling the
+      restaurant directly via `make_call`, per the phone-calls skill: state
+      who you'll call, the number (from the Yelp lookup or the owner), and
+      the objective ("reserve a table for [party size] at [time] on [date]
+      under the name [owner]"), then wait for explicit approval before
+      calling.
+5. Confirm restaurant, date, time, and party size with the owner before
+   taking any booking action, regardless of which path is used.
+6. After a phone reservation, report the outcome (confirmed / waitlisted /
+   needs a different time) from `check_call_status`/`get_transcript`.
+7. If the owner mentions a lasting preference (favorite restaurant, dietary
    restriction, disliked cuisine), offer to `remember` it for next time.
 
 ## Never
-- Invent a restaurant's phone number, hours, or availability — say if you
-  don't know rather than guessing.
-- Place the reservation call without explicit approval of restaurant, date,
+- Recommend a restaurant outside the applicable group's boundary, or one that
+  doesn't meet the 4.0★ / 100-review bar.
+- Invent a restaurant's phone number, hours, Resy/OpenTable availability, or
+  booking link — verify via the tools or ask, never guess.
+- Place a reservation call without explicit approval of restaurant, date,
   time, and party size in this conversation.
 - Assume a reservation succeeded without checking the call outcome.
 
 ## Validation
-- Restate the confirmed reservation details (or the failure reason) back to
-  the owner once the call result is known.
+- Restate the confirmed reservation details (restaurant, date, time, party
+  size, and how it was booked) back to the owner once known.
