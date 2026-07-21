@@ -40,7 +40,7 @@ def _decode_body(payload: dict) -> str:
 
 
 def send_email_direct(to: str, subject: str, body: str) -> None:
-    """Send an email synchronously (used by scheduler, not via agent tool)."""
+    """Send an email synchronously (used by dreamer.py's report email, not via agent tool)."""
     svc = _gmail_service()
     mime = MIMEText(body)
     mime["to"] = to

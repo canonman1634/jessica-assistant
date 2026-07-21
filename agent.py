@@ -1,19 +1,16 @@
 """
-Jessica — Anthropic SDK orchestrator.
-Receives a message from Jason, runs the agent with all tools, returns a reply string.
+Jessica — tool registry and system-prompt builder.
+Defines the tools and per-capability skill docs an agent acts as Jessica
+with; see skills/*.md for the procedural instructions each tool follows.
 """
 
-import json
 import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import anthropic
-
-from config import load_context, ANTHROPIC_API_KEY, TZ
-from session_store import get_session_id, save_session_id
+from config import load_context, TZ
 from tools.email_tool import list_unread, search_emails, read_email, send_email
 from tools.calendar_tool import list_upcoming, check_availability, create_event, update_event
 from tools.phone_tool import make_call, check_call_status, get_transcript, list_recent_calls
@@ -21,11 +18,10 @@ from tools.school_tool import check_school_updates, get_daily_report
 from tools.restaurant_tool import search_restaurants, get_restaurant_details
 from tools.home_services_tool import search_home_services, get_home_service_details
 from tools.memory_tool import remember, forget, load_memory_for_prompt, load_relevant_memory_for_prompt
-from tools import vector_memory, staging
+from tools import vector_memory
 
 logger = logging.getLogger(__name__)
 
-_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 _TZ = ZoneInfo(TZ)
 
 _SKILLS_DIR = Path(__file__).parent / "skills"
@@ -93,9 +89,6 @@ _TOOLS = [
     {"name": "forget", "description": "Remove a stored fact from memory. Provide category and the key (or keyword for notes) to delete.", "input_schema": {"type": "object", "properties": {"category": {"type": "string", "enum": ["people", "prefs", "notes"]}, "key": {"type": "string"}}, "required": ["category", "key"]}},
 ]
 
-# ── Conversation history (in-memory, keyed by phone number) ───────────────────
-_conversations: dict[str, list] = {}
-
 
 def _build_system_prompt(current_message: str = "") -> str:
     ctx = load_context()
@@ -120,7 +113,7 @@ def _build_system_prompt(current_message: str = "") -> str:
 - Warm, personable, and efficient — like a trusted friend who happens to be incredibly organized
 - Concise but never cold; use a natural, conversational tone
 - Use first names when referring to family members
-- Respond via WhatsApp, so keep things readable: use short paragraphs or bullet points for lists
+- Keep replies readable: short paragraphs or bullet points for lists
 
 ## Family context
 - Owner: {owner} (timezone: {tz})
@@ -174,119 +167,3 @@ async def _run_tool(name: str, args: dict) -> str:
     result = await handler(args)
     content = result.get("content", [])
     return "\n".join(c.get("text", "") for c in content if c.get("type") == "text")
-
-
-def _sanitize_history(history: list) -> list:
-    """Remove any tool_use/tool_result pairs that are incomplete or unmatched."""
-    clean = []
-    for msg in history:
-        content = msg.get("content", "")
-        # Skip assistant messages that contain tool_use blocks without following tool_results
-        if msg["role"] == "assistant" and isinstance(content, list):
-            has_tool_use = any(
-                getattr(b, "type", None) == "tool_use" or (isinstance(b, dict) and b.get("type") == "tool_use")
-                for b in content
-            )
-            if has_tool_use:
-                # Only keep if the next message is a tool_result
-                idx = history.index(msg)
-                if idx + 1 >= len(history):
-                    continue  # Drop dangling tool_use at end of history
-                next_msg = history[idx + 1]
-                next_content = next_msg.get("content", [])
-                if not isinstance(next_content, list) or not any(
-                    (isinstance(b, dict) and b.get("type") == "tool_result") for b in next_content
-                ):
-                    continue  # Drop unmatched tool_use
-        # Skip orphaned tool_result messages
-        if msg["role"] == "user" and isinstance(content, list) and content and (
-            isinstance(content[0], dict) and content[0].get("type") == "tool_result"
-        ):
-            idx = history.index(msg)
-            if idx == 0:
-                continue
-            prev_msg = history[idx - 1]
-            prev_content = prev_msg.get("content", [])
-            if not isinstance(prev_content, list) or not any(
-                getattr(b, "type", None) == "tool_use" or (isinstance(b, dict) and b.get("type") == "tool_use")
-                for b in prev_content
-            ):
-                continue
-        clean.append(msg)
-    return clean
-
-
-async def run_agent(phone: str, message: str) -> str:
-    """Process an incoming WhatsApp message and return Jessica's reply."""
-    if phone not in _conversations:
-        _conversations[phone] = []
-
-    # Sanitize history before appending new message
-    _conversations[phone] = _sanitize_history(_conversations[phone])
-    _conversations[phone].append({"role": "user", "content": message})
-
-    # Keep last 20 messages to avoid context blowout
-    history = _conversations[phone][-20:]
-
-    max_iterations = 10
-    for _ in range(max_iterations):
-        try:
-            response = _client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=4096,
-                system=_build_system_prompt(message),
-                tools=_TOOLS,
-                messages=history,
-            )
-        except Exception as e:
-            # If API rejects the history, clear it and retry with just the current message
-            logger.warning("API error with history, resetting conversation: %s", e)
-            _conversations[phone] = []
-            history = [{"role": "user", "content": message}]
-            response = _client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=4096,
-                system=_build_system_prompt(message),
-                tools=_TOOLS,
-                messages=history,
-            )
-
-        # Add assistant response to history
-        assistant_content = response.content
-        history.append({"role": "assistant", "content": assistant_content})
-        logger.info("Stop reason: %s", response.stop_reason)
-
-        if response.stop_reason == "end_turn":
-            reply = "\n".join(
-                block.text for block in assistant_content
-                if hasattr(block, "text")
-            ).strip()
-            _conversations[phone] = history
-            staging.log_activity("turn", phone=phone, user_message=message, reply=reply)
-            return reply or "Done!"
-
-        if response.stop_reason == "tool_use":
-            tool_results = []
-            for block in assistant_content:
-                if block.type == "tool_use":
-                    logger.info("Calling tool: %s with %s", block.name, block.input)
-                    result_text = await _run_tool(block.name, block.input)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result_text,
-                    })
-                    staging.log_activity(
-                        "tool_call", tool=block.name, args=block.input,
-                        result=result_text[:500],
-                    )
-                    if block.name in _EPISODIC_TOOLS and not result_text.lower().startswith(("error", "unknown tool")):
-                        _log_episodic_tool_action(block.name, block.input, result_text)
-
-            history.append({"role": "user", "content": tool_results})
-            continue
-
-        break
-
-    _conversations[phone] = history
-    return "Sorry, I ran into an issue. Please try again!"

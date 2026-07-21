@@ -1,12 +1,9 @@
 anthropic
-flask
-gunicorn
 bland
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
 python-dotenv
-apscheduler
 requests
 chromadb
 playwright
