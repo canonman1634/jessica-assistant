@@ -57,10 +57,31 @@ There's no equivalent for episodic memory — it didn't exist before, so
 there's no prior data to backfill; it starts accumulating from the first
 turn after deploy.
 
+## Two separate skill systems — don't confuse them
+
+- `skills/*.md` (this dir, top-level) — Jessica's own procedural docs,
+  written for `agent.py._load_procedural_memory` to concatenate into a
+  system prompt. **Nothing currently calls that path** (the WhatsApp loop
+  that used to call it is gone), so a file living only here will not
+  auto-trigger in a Claude Code session.
+- `.claude/skills/<name>/SKILL.md` — real Claude Code skills, auto-loaded
+  and auto-triggered by Claude Code itself based on the `description` in
+  their frontmatter (e.g. `email-calendar-sync`, `restaurant-reservations`,
+  `home-services`). These are what actually fire when you talk to a fresh
+  Claude Code session. They call Jessica's Python tools via
+  `python scripts/run_tool.py <tool_name> '<json args>'` (Bash) rather than
+  as native tool calls, since those tools were built for `agent.py`'s
+  registry, not for Claude Code directly.
+
+If a capability needs to work from a Claude Code session, it needs a
+`.claude/skills/` entry — a `skills/*.md` file alone won't be seen.
+
 ## Extending this
 
-- New tool categories → add a `skills/<name>.md` procedural doc; it's picked
-  up automatically (`agent.py` globs `skills/*.md`).
+- New tool categories → add the Python tool function (`tools/<name>.py`)
+  and register it in `agent.py`'s `_TOOL_HANDLERS`/`_TOOLS`, then add a
+  `.claude/skills/<name>/SKILL.md` that calls it via
+  `scripts/run_tool.py` (see above).
 - New semantic fact types → just call `remember` with a new `category`; no
   code change needed unless it needs its own retrieval shaping.
 - Consolidation cadence is whatever you set up to call `dreamer.py` (manual

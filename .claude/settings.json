@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Skill(email-calendar-sync)"
+      "Skill(email-calendar-sync)",
+      "Skill(restaurant-reservations)",
+      "Skill(home-services)"
     ]
   }
 }
