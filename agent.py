@@ -19,6 +19,7 @@ from tools.calendar_tool import list_upcoming, check_availability, create_event,
 from tools.phone_tool import make_call, check_call_status, get_transcript, list_recent_calls
 from tools.school_tool import check_school_updates, get_daily_report
 from tools.restaurant_tool import search_restaurants, get_restaurant_details
+from tools.home_services_tool import search_home_services, get_home_service_details
 from tools.memory_tool import remember, forget, load_memory_for_prompt, load_relevant_memory_for_prompt
 from tools import vector_memory, staging
 
@@ -63,6 +64,8 @@ _TOOL_HANDLERS = {
     "get_daily_report": get_daily_report,
     "search_restaurants": search_restaurants,
     "get_restaurant_details": get_restaurant_details,
+    "search_home_services": search_home_services,
+    "get_home_service_details": get_home_service_details,
     "remember": remember,
     "forget": forget,
 }
@@ -84,6 +87,8 @@ _TOOLS = [
     {"name": "get_daily_report", "description": "Get the full content of the most recent My Bright Day daily report email.", "input_schema": {"type": "object", "properties": {}}},
     {"name": "search_restaurants", "description": "Look up restaurants near a location via a headless browser against Google Maps (primary, 4.5+ rating / 100+ reviews), Yelp (4.0+ rating / 100+ reviews), and TripAdvisor (shown unfiltered, reference only), labeled by source (a source is noted if it fails to parse or gets blocked). No phone numbers are returned. Pass a specific town/suburb/neighborhood as location, not a wide region.", "input_schema": {"type": "object", "properties": {"location": {"type": "string"}, "term": {"type": "string"}}, "required": ["location"]}},
     {"name": "get_restaurant_details", "description": "Look up a specific restaurant by name + location across Google, Yelp, and TripAdvisor (via headless browser) for rating and review count, labeled by source. No phone numbers are returned.", "input_schema": {"type": "object", "properties": {"name": {"type": "string"}, "location": {"type": "string"}}, "required": ["name", "location"]}},
+    {"name": "search_home_services", "description": "Look up a home services provider (insulation, handyman, plumbing, electrical, roofing, HVAC, etc.) near a location via a headless browser. Yelp is the primary filter (4.0+ rating / 50+ reviews); Google Maps is shown unfiltered, as a reference only. No API keys, no phone numbers returned.", "input_schema": {"type": "object", "properties": {"location": {"type": "string"}, "service": {"type": "string"}}, "required": ["location", "service"]}},
+    {"name": "get_home_service_details", "description": "Look up a specific home services provider by name + location on Yelp and Google Maps for rating and review count.", "input_schema": {"type": "object", "properties": {"name": {"type": "string"}, "location": {"type": "string"}}, "required": ["name", "location"]}},
     {"name": "remember", "description": "Persist a fact for future sessions. category: 'people' (key=name, value=description), 'prefs' (key=preference, value=value), or 'notes' (key=the note itself). Call this whenever Jason shares a persistent fact (a contact, preference, or anything worth keeping).", "input_schema": {"type": "object", "properties": {"category": {"type": "string", "enum": ["people", "prefs", "notes"]}, "key": {"type": "string"}, "value": {"type": "string"}}, "required": ["category", "key"]}},
     {"name": "forget", "description": "Remove a stored fact from memory. Provide category and the key (or keyword for notes) to delete.", "input_schema": {"type": "object", "properties": {"category": {"type": "string", "enum": ["people", "prefs", "notes"]}, "key": {"type": "string"}}, "required": ["category", "key"]}},
 ]
