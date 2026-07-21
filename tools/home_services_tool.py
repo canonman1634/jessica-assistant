@@ -13,6 +13,7 @@ from tools._web_lookup import err, ok, scrape_google_maps, scrape_yelp
 
 _YELP_MIN_RATING = 4.0
 _MIN_REVIEWS = 50
+_DEFAULT_LOCATION = "60010"
 
 
 async def _run_all(location: str, term: str) -> str:
@@ -36,25 +37,27 @@ async def search_home_services(args: dict) -> dict:
     """Search Yelp (primary — requires rating >= 4.0 and review_count >= 50)
     and Google Maps (reference only, unfiltered) via headless browser for a
     home services provider (insulation, handyman, plumbing, electrical,
-    roofing, HVAC, etc.) near a location. No API keys required."""
-    location = args.get("location", "")
+    roofing, HVAC, etc.). Defaults to zip 60010 (Barrington) if no location
+    is given. No API keys required."""
+    location = args.get("location") or _DEFAULT_LOCATION
     term = args.get("service", "")
 
-    if not location or not term:
-        return err("location and service are required (e.g. service='electrician', location='Barrington, IL').")
+    if not term:
+        return err("service is required (e.g. service='electrician').")
 
     text = await _run_all(location, term)
     return ok(text)
 
 
 async def get_home_service_details(args: dict) -> dict:
-    """Look up a specific home services provider by name + location on Yelp
-    and Google Maps for rating and review count."""
+    """Look up a specific home services provider by name (in the 60010 area
+    unless a different location is given) on Yelp and Google Maps for
+    rating and review count."""
     name = args.get("name", "")
-    location = args.get("location", "")
+    location = args.get("location") or _DEFAULT_LOCATION
 
-    if not name or not location:
-        return err("name and location are required.")
+    if not name:
+        return err("name is required.")
 
     text = await _run_all(location, name)
     return ok(text)

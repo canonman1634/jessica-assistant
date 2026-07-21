@@ -9,36 +9,36 @@ trigger: any request for a home services provider (insulation, handyman, plumbin
 - `search_home_services`, `get_home_service_details` — headless-browser
   lookups (no API keys) against Yelp (primary) and Google Maps (reference);
   results come back labeled by source. It does not return phone numbers.
-- Remembered facts (`remember`/`forget`) for the owner's address(es) and any
-  past providers used
+- Remembered facts (`remember`/`forget`) for past providers used
 - Bland.ai via `make_call`, `check_call_status`, `get_transcript` to call and
   schedule an estimate/appointment
 
+## Search area
+Search is always scoped to **60010** (Barrington) — pass that zip as the
+location to `search_home_services`/`get_home_service_details`. Don't ask
+for or substitute a different location/town for this skill.
+
 ## Procedure
-1. Confirm the property if not already stated — check remembered facts for
-   an address first (there may be more than one, e.g. a home currently being
-   purchased vs. the current residence — don't assume which one without
-   confirming), then ask if still unclear.
-2. Confirm the type of work needed (insulation, handyman, plumbing,
+1. Confirm the type of work needed (insulation, handyman, plumbing,
    electrical, etc.) if not already stated.
-3. Use `search_home_services` with the service type and location/town.
+2. Use `search_home_services` with the service type and location `60010`.
    Yelp is the hard filter — only propose a provider with a 4.0+ rating and
    50+ reviews on Yelp. Google Maps results come back unfiltered — show them
    as a reference/cross-check, never as the sole basis to propose a
    provider.
-4. Show the owner the results from both sources (labeled Yelp/Google), even
+3. Show the owner the results from both sources (labeled Yelp/Google), even
    if one came back empty or failed to parse — don't silently drop a source;
    note briefly if a source failed to parse or got blocked.
-5. Offer 2-3 options with rating, review count, and city, so the owner can
+4. Offer 2-3 options with rating, review count, and city, so the owner can
    pick one.
-6. Once a provider is picked, get the phone number from the owner if not
+5. Once a provider is picked, get the phone number from the owner if not
    already known (don't guess it), confirm the objective (estimate visit vs.
    book the work directly, and any timing preference), then follow the
    phone-calls skill: state who you'll call, the number, and the objective,
    and wait for explicit approval before `make_call`.
-7. After the call, report the outcome (appointment booked / estimate
+6. After the call, report the outcome (appointment booked / estimate
    scheduled / needs a callback) from `check_call_status`/`get_transcript`.
-8. If the owner mentions a preferred/blacklisted provider, offer to
+7. If the owner mentions a preferred/blacklisted provider, offer to
    `remember` it for next time.
 
 ## Never
