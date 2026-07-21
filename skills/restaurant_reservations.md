@@ -47,15 +47,17 @@ party size like anything else).
    asking again.
 2. Use `search_restaurants` with a specific town/suburb inside the correct
    boundary (not the whole region at once) to find candidates. It queries
-   Google (primary), Yelp, and TripAdvisor and filters each to 4.0+ rating
-   and 100+ reviews — never propose a restaurant that doesn't meet that bar
-   or that you haven't verified with `search_restaurants`/
-   `get_restaurant_details`. Always show the owner the results from every
-   source that returned something (labeled Google/Yelp/TripAdvisor), even if
-   one source came back empty or unavailable — don't silently drop a source.
-   If a source is skipped/unconfigured (e.g. Yelp has no free tier anymore
-   and may need a paid key), say so briefly rather than pretending it wasn't
-   tried.
+   Google (primary, 4.5+ rating / 100+ reviews) and Yelp (4.0+ rating / 100+
+   reviews) as hard filters — never propose a restaurant that doesn't meet
+   its source's bar, or that you haven't verified with
+   `search_restaurants`/`get_restaurant_details`. TripAdvisor results come
+   back unfiltered — treat them as a reference/cross-check only, not
+   qualifying evidence on their own. Always show the owner the results from
+   every source that returned something (labeled Google/Yelp/TripAdvisor),
+   even if one source came back empty or unavailable — don't silently drop a
+   source. If a source is skipped/unconfigured (e.g. Yelp has no free tier
+   anymore and may need a paid key), say so briefly rather than pretending it
+   wasn't tried.
 3. Offer 2-3 options with rating, review count, source, and town, so the
    owner can confirm none of them are recent duplicates/misses before
    picking one.
@@ -81,7 +83,9 @@ party size like anything else).
 
 ## Never
 - Recommend a restaurant outside the applicable group's boundary, or one that
-  doesn't meet the 4.0★ / 100-review bar.
+  doesn't meet its source's rating/review bar (Google 4.5★ / 100 reviews,
+  Yelp 4.0★ / 100 reviews — TripAdvisor alone is not enough to qualify a
+  restaurant).
 - Invent a restaurant's phone number, hours, Resy/OpenTable availability, or
   booking link — verify via the tools or ask, never guess.
 - Place a reservation call without explicit approval of restaurant, date,

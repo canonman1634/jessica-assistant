@@ -2,7 +2,8 @@
 Restaurant lookup tools — queries Google Places (primary), Yelp (best-effort;
 account may be on a paid plan or unconfigured), and TripAdvisor, and returns
 each source's results labeled separately so Jessica can display all of them.
-Rating/review-count filtering (4.0+, 100+ reviews) happens client-side.
+Google and Yelp are filtered client-side to a minimum rating/review count;
+TripAdvisor is shown unfiltered, as a reference only.
 """
 
 import logging
@@ -11,7 +12,8 @@ from config import GOOGLE_PLACES_API_KEY, YELP_API_KEY, TRIPADVISOR_API_KEY
 
 logger = logging.getLogger(__name__)
 
-_MIN_RATING = 4.0
+_GOOGLE_MIN_RATING = 4.5
+_YELP_MIN_RATING = 4.0
 _MIN_REVIEWS = 100
 
 
@@ -43,10 +45,10 @@ def _search_google(location: str, term: str) -> str:
 
     matches = [
         r for r in data.get("results", [])
-        if r.get("rating", 0) >= _MIN_RATING and r.get("user_ratings_total", 0) >= _MIN_REVIEWS
+        if r.get("rating", 0) >= _GOOGLE_MIN_RATING and r.get("user_ratings_total", 0) >= _MIN_REVIEWS
     ]
     if not matches:
-        return "Google: no results met the 4.0+ rating / 100+ review bar."
+        return "Google: no results met the 4.5+ rating / 100+ review bar."
 
     lines = [
         f"  - {r['name']} — {r['rating']}★ ({r['user_ratings_total']} reviews), {r.get('formatted_address', '')}"
@@ -79,7 +81,7 @@ def _search_yelp(location: str, term: str, price: str | None) -> str:
     businesses = resp.json().get("businesses", [])
     matches = [
         b for b in businesses
-        if b.get("rating", 0) >= _MIN_RATING and b.get("review_count", 0) >= _MIN_REVIEWS
+        if b.get("rating", 0) >= _YELP_MIN_RATING and b.get("review_count", 0) >= _MIN_REVIEWS
     ]
     if not matches:
         return "Yelp: no results met the 4.0+ rating / 100+ review bar."
@@ -136,22 +138,22 @@ def _search_tripadvisor(location: str, term: str) -> str:
 
         rating = float(d.get("rating") or 0)
         num_reviews = int(d.get("num_reviews") or 0)
-        if rating >= _MIN_RATING and num_reviews >= _MIN_REVIEWS:
-            lines.append(
-                f"  - {d.get('name', c.get('name'))} — {rating}★ ({num_reviews} reviews), "
-                f"{d.get('address_obj', {}).get('address_string', '')}"
-            )
+        lines.append(
+            f"  - {d.get('name', c.get('name'))} — {rating or 'n/a'}★ ({num_reviews} reviews), "
+            f"{d.get('address_obj', {}).get('address_string', '')}"
+        )
 
     if not lines:
-        return "TripAdvisor: no results met the 4.0+ rating / 100+ review bar."
-    return "TripAdvisor:\n" + "\n".join(lines)
+        return "TripAdvisor: no results found."
+    return "TripAdvisor (reference only, no rating threshold applied):\n" + "\n".join(lines)
 
 
 async def search_restaurants(args: dict) -> dict:
     """Search Google Places, Yelp, and TripAdvisor for restaurants near a
-    location. Filters each source to rating >= 4.0 and review_count >= 100.
-    Always attempts all three sources and labels results by source, even if
-    one is unconfigured or errors."""
+    location. Google requires rating >= 4.5 and review_count >= 100; Yelp
+    requires rating >= 4.0 and review_count >= 100; TripAdvisor is shown
+    unfiltered, as a reference only. Always attempts all three sources and
+    labels results by source, even if one is unconfigured or errors."""
     location = args.get("location", "")
     term = args.get("term", "restaurants")
     price = args.get("price")
